@@ -39,7 +39,7 @@ class FontAuditResult:
 def audit_font(
     font_path: Union[str, Path],
     *,
-    sample_text: Union[str, Iterable[str]],
+    sample_text: Optional[Union[str, Iterable[str]]] = None,
     profile: Optional[TermPttProfile] = None,
 ) -> FontAuditResult:
     """Audit glyph advance widths against the Term PTT cell profile."""
@@ -58,7 +58,7 @@ def audit_font(
         hmtx = font["hmtx"].metrics
         checks = [
             _audit_character(character, cmap, hmtx, active_profile)
-            for character in _unique_characters(sample_text)
+            for character in _target_characters(sample_text, cmap)
         ]
         return FontAuditResult(path=path, units_per_em=units_per_em, checks=checks)
     finally:
@@ -101,3 +101,13 @@ def _unique_characters(sample_text: Union[str, Iterable[str]]) -> List[str]:
             raise ValueError("sample_text must contain single Unicode code points")
 
     return unique
+
+
+def _target_characters(
+    sample_text: Optional[Union[str, Iterable[str]]],
+    cmap,
+) -> List[str]:
+    if sample_text is not None:
+        return _unique_characters(sample_text)
+
+    return [chr(codepoint) for codepoint in sorted(cmap)]

@@ -23,7 +23,10 @@ The CLI can ship as a Python package first, then later add standalone binaries i
 
 Initial CLI scope:
 
+- `ptt-font audit`
 - `ptt-font patch`
+- `ptt-font verify`
+- `--sample-text`
 - `--strategy center`
 - `--strategy fit`
 - `--family-name`

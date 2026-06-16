@@ -19,7 +19,7 @@
 
 CLI 用於可重複執行的本機流程與自動化。
 
-預計指令：
+目前指令：
 
 ```bash
 ptt-font audit input.otf
@@ -27,14 +27,18 @@ ptt-font patch input.otf --output output.otf --strategy center
 ptt-font verify output.otf
 ```
 
+`audit` 會列出不符合 PTT cell 寬度的 glyph，但即使發現問題也會 exit `0`，適合人工檢查。
+
+`verify` 會輸出同樣的檢查結果；全部符合時 exit `0`，有 mismatch 或 missing glyph 時 exit `1`，適合 CI 或 script 使用。
+
+`audit`、`patch`、`verify` 都支援 `--sample-text`。不指定 `--sample-text` 時，會處理或檢查字型 cmap 映射到的所有 Unicode 字元。
+
 省略 `--output` 時，處理後的字型會輸出在輸入檔旁邊，檔名預設加上 `-ptt` 後綴。
 
 ```bash
 ptt-font patch lithue-1.1.otf --sample-text "A漢ˇ"
 # 產生 lithue-1.1-ptt.otf
 ```
-
-不指定 `--sample-text` 時，`patch` 會處理字型 cmap 映射到的所有 Unicode 字元。
 
 處理策略：
 
