@@ -3,10 +3,13 @@ import unittest
 from pathlib import Path
 
 from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont
 
 from ptt_font_tool.audit import audit_font
-from ptt_font_tool.patch import patch_font_metrics
+from ptt_font_tool.patch import default_output_path, patch_font
 
 
 def _empty_glyph():
@@ -45,14 +48,148 @@ def _build_patch_fixture(path: Path) -> None:
     builder.save(path)
 
 
-class PatchFontMetricsTest(unittest.TestCase):
+def _build_shared_glyph_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "shared"]
+    glyphs = {glyph_name: _empty_glyph() for glyph_name in glyph_order}
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({
+        ord("A"): "shared",
+        ord("Ａ"): "shared",
+    })
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "shared": (800, 0),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Shared Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Shared Fixture Regular",
+        "fullName": "Shared Fixture Regular",
+        "psName": "SharedFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+
+def _rectangle_glyph(x_min: int, x_max: int):
+    pen = TTGlyphPen(None)
+    pen.moveTo((x_min, 0))
+    pen.lineTo((x_max, 0))
+    pen.lineTo((x_max, 700))
+    pen.lineTo((x_min, 700))
+    pen.closePath()
+    return pen.glyph()
+
+
+def _build_outline_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "wide"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "wide": _rectangle_glyph(20, 780),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({ord("A"): "wide"})
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "wide": (800, 20),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Outline Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Outline Fixture Regular",
+        "fullName": "Outline Fixture Regular",
+        "psName": "OutlineFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+
+def _draw_cff_rectangle(pen, x_min: int, x_max: int) -> None:
+    pen.moveTo((x_min, 0))
+    pen.lineTo((x_max, 0))
+    pen.lineTo((x_max, 700))
+    pen.lineTo((x_min, 700))
+    pen.closePath()
+
+
+def _build_cff_outline_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "wide"]
+    char_strings = {}
+    for glyph_name in glyph_order:
+        pen = T2CharStringPen(800, None)
+        if glyph_name == "wide":
+            _draw_cff_rectangle(pen, 20, 780)
+        char_strings[glyph_name] = pen.getCharString()
+
+    builder = FontBuilder(1000, isTTF=False)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({ord("A"): "wide"})
+    builder.setupCFF(
+        "CFFOutlineFixture-Regular",
+        {"FullName": "CFF Outline Fixture Regular"},
+        char_strings,
+        {},
+    )
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "wide": (800, 20),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "CFF Outline Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "CFF Outline Fixture Regular",
+        "fullName": "CFF Outline Fixture Regular",
+        "psName": "CFFOutlineFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+
+def _glyph_bounds(font_path: Path, character: str):
+    font = TTFont(font_path)
+    try:
+        cmap = font.getBestCmap() or {}
+        glyph_name = cmap[ord(character)]
+        glyph_set = font.getGlyphSet()
+        pen = BoundsPen(glyph_set)
+        glyph_set[glyph_name].draw(pen)
+        return pen.bounds
+    finally:
+        font.close()
+
+
+def _family_names(font_path: Path) -> set[str]:
+    font = TTFont(font_path)
+    try:
+        return {
+            record.toUnicode()
+            for record in font["name"].names
+            if record.nameID in {1, 4, 6}
+        }
+    finally:
+        font.close()
+
+
+class PatchFontTest(unittest.TestCase):
     def test_patches_sample_glyph_advance_widths_to_term_ptt_profile(self):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "input.ttf"
             output_path = Path(directory) / "output.ttf"
             _build_patch_fixture(input_path)
 
-            result = patch_font_metrics(input_path, output_path, sample_text="A漢ˇ")
+            result = patch_font(input_path, output_path, sample_text="A漢ˇ")
 
             audited = audit_font(output_path, sample_text="A漢ˇ")
 
@@ -71,10 +208,111 @@ class PatchFontMetricsTest(unittest.TestCase):
             output_path = Path(directory) / "output.ttf"
             _build_patch_fixture(input_path)
 
-            result = patch_font_metrics(input_path, output_path, sample_text="A好")
+            result = patch_font(input_path, output_path, sample_text="A好")
 
         skipped = {item.character: item for item in result.skipped_glyphs}
         self.assertEqual(skipped["好"].reason, "missing")
+
+    def test_shared_glyph_uses_the_widest_target_advance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_shared_glyph_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="AＡ")
+
+            font = TTFont(output_path)
+            try:
+                self.assertEqual(font["hmtx"].metrics["shared"][0], 1000)
+            finally:
+                font.close()
+
+    def test_center_strategy_preserves_outline_width_and_centers_the_glyph(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_outline_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="A", strategy="center")
+
+            bounds = _glyph_bounds(output_path, "A")
+
+        self.assertEqual(bounds, (-130, 0, 630, 700))
+
+    def test_fit_strategy_scales_oversized_outline_and_centers_the_glyph(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_outline_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="A", strategy="fit")
+
+            bounds = _glyph_bounds(output_path, "A")
+
+        self.assertEqual(bounds, (0, 0, 500, 700))
+
+    def test_center_strategy_supports_cff_outlines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.otf"
+            output_path = Path(directory) / "output.otf"
+            _build_cff_outline_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="A", strategy="center")
+
+            bounds = _glyph_bounds(output_path, "A")
+
+        self.assertEqual(bounds, (-130, 0, 630, 700))
+
+    def test_fit_strategy_supports_cff_outlines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.otf"
+            output_path = Path(directory) / "output.otf"
+            _build_cff_outline_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="A", strategy="fit")
+
+            bounds = _glyph_bounds(output_path, "A")
+
+        self.assertEqual(bounds, (0, 0, 500, 700))
+
+    def test_renames_the_output_font_with_ptt_suffix_by_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_patch_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="A")
+
+            names = _family_names(output_path)
+
+        self.assertIn("Patch Fixture PTT", names)
+        self.assertIn("Patch Fixture PTT Regular", names)
+        self.assertIn("PatchFixturePTT-Regular", names)
+
+    def test_allows_custom_output_family_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_patch_fixture(input_path)
+
+            patch_font(
+                input_path,
+                output_path,
+                sample_text="A",
+                family_name="Custom PTT",
+            )
+
+            names = _family_names(output_path)
+
+        self.assertIn("Custom PTT", names)
+        self.assertIn("Custom PTT Regular", names)
+        self.assertIn("CustomPTT-Regular", names)
+
+    def test_default_output_path_adds_ptt_before_extension(self):
+        self.assertEqual(
+            default_output_path(Path("lithue-1.1.otf")),
+            Path("lithue-1.1-ptt.otf"),
+        )
 
 
 if __name__ == "__main__":

@@ -21,6 +21,14 @@ The first desktop milestone should package:
 
 The CLI can ship as a Python package first, then later add standalone binaries if needed.
 
+Initial CLI scope:
+
+- `ptt-font patch`
+- `--strategy center`
+- `--strategy fit`
+- `--family-name`
+- default `-ptt` output path when `--output` is omitted
+
 Expected release artifacts:
 
 - Source distribution.

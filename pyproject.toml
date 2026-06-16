@@ -17,6 +17,9 @@ dependencies = [
   "fonttools>=4.58",
 ]
 
+[project.scripts]
+ptt-font = "ptt_font_tool.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/VdustR/ptt-font-tool"
 Repository = "https://github.com/VdustR/ptt-font-tool"
