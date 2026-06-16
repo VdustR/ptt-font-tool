@@ -1,62 +1,76 @@
 # PTT Font Tool
 
-Desktop, CLI, and library tools for adapting fonts to term.ptt.cc terminal cell metrics.
+桌面版、CLI 與 Python library 工具，用來把字型調整成適合 term.ptt.cc 終端機格線的版本。
 
 ## Desktop
 
-The desktop app is planned as the primary user-facing workflow.
+桌面版會是主要的使用者介面。
 
-Goals:
+目標：
 
-- Open a local font file.
-- Preview whether the font follows term.ptt.cc terminal cell metrics.
-- Process the font into a PTT-friendly local output.
-- Export patched font files without requiring users to install Python, fontTools, Brotli, or other runtime dependencies.
+- 開啟本機字型檔。
+- 預覽字型是否符合 term.ptt.cc 的終端機格線寬度。
+- 將字型處理成適合 PTT 使用的本機輸出檔。
+- 匯出處理後的字型，不要求使用者自行安裝 Python、fontTools、Brotli 或其他 runtime dependencies。
 
-The desktop build should bundle all required runtime dependencies so users can download and run the app directly.
+桌面版會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行。
 
 ## CLI
 
-The CLI is planned for repeatable local workflows and automation.
+CLI 用於可重複執行的本機流程與自動化。
 
-Planned commands:
+預計指令：
 
 ```bash
 ptt-font audit input.otf
-ptt-font patch input.otf --output output.otf
+ptt-font patch input.otf --output output.otf --strategy center
 ptt-font verify output.otf
 ```
 
+省略 `--output` 時，處理後的字型會輸出在輸入檔旁邊，檔名預設加上 `-ptt` 後綴。
+
+```bash
+ptt-font patch lithue-1.1.otf --sample-text "A漢ˇ"
+# 產生 lithue-1.1-ptt.otf
+```
+
+不指定 `--sample-text` 時，`patch` 會處理字型 cmap 映射到的所有 Unicode 字元。
+
+處理策略：
+
+- `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell，允許視覺上溢出或重疊。
+- `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。
+
 ## Library
 
-The Python library contains the reusable core for the desktop app and CLI.
+Python library 提供桌面版與 CLI 共用的核心邏輯。
 
-Current modules:
+目前模組：
 
-- `ptt_font_tool.profile`: maps Unicode characters to Term PTT cell widths.
-- `ptt_font_tool.audit`: reads a font and reports whether glyph advance widths match the Term PTT profile.
-- `ptt_font_tool.patch`: patches glyph advance widths to match the Term PTT profile.
+- `ptt_font_tool.profile`：將 Unicode 字元映射到 Term PTT cell 寬度。
+- `ptt_font_tool.audit`：讀取字型，檢查 glyph advance width 是否符合 Term PTT profile。
+- `ptt_font_tool.patch`：修改 glyph advance width，並套用 `center` 或 `fit` outline 策略。
 
-## Font Width Model
+## Font Width Model 字寬模型
 
-term.ptt.cc uses terminal-style 2:1 cell metrics:
+term.ptt.cc 使用終端機常見的 2:1 cell 寬度：
 
-- ASCII and halfwidth characters use one cell.
-- CJK, fullwidth, wide, and East Asian ambiguous characters use two cells.
-- For a 1000 UPEM font, one cell is expected to be 500 font units and two cells are expected to be 1000 font units.
-- For a 1200 UPEM font, one cell is expected to be 600 font units and two cells are expected to be 1200 font units.
+- ASCII 與半形字元使用一個 cell。
+- CJK、全形、寬字元，以及 East Asian Ambiguous 字元使用兩個 cell。
+- 1000 UPEM 字型中，一個 cell 預期是 500 font units，兩個 cell 預期是 1000 font units。
+- 1200 UPEM 字型中，一個 cell 預期是 600 font units，兩個 cell 預期是 1200 font units。
 
-The default profile uses Python's Unicode East Asian Width data and treats ambiguous-width characters as wide for term.ptt.cc.
+預設 profile 使用 Python 的 Unicode East Asian Width 資料，並且針對 term.ptt.cc 將 ambiguous-width 字元視為寬字元。
 
-## Current Limits
+## Current Limits 目前限制
 
-- `patch_font_metrics` changes horizontal advance metrics only.
-- Proportional CFF fonts may also need outline fitting so wide Latin outlines do not visually overlap after their advances are compressed to half-width cells.
-- CFF outline fitting is currently a local proof of concept and has not been promoted into the library API yet.
+- Audit 與 advance patching 依照 fontTools 支援的 OpenType 與 TrueType 輸入格式。
+- Outline strategies 目前支援 TrueType `glyf` 與 CFF-based OTF 字型。
+- CFF2、variable font 行為、color glyph outlines 還需要更多相容性測試，才會視為正式支援路徑。
 
 ## Development
 
-Create an isolated Python environment and install the package:
+建立隔離的 Python environment 並安裝 package：
 
 ```bash
 python -m venv .venv
@@ -64,24 +78,24 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
-Run tests:
+執行測試：
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-## Release Plan
+## Release Plan 發布規劃
 
-This repository is planned to use Release Please for versioning and release automation.
+這個 repository 預計使用 Release Please 管理版本與自動化 release。
 
-Release artifacts should eventually include:
+未來 release artifacts 預計包含：
 
-- CLI package artifacts.
-- Desktop app bundles with runtime dependencies included.
-- Checksums for downloadable artifacts.
+- CLI package artifacts。
+- 已包含 runtime dependencies 的桌面版 app bundles。
+- 可下載 artifacts 的 checksums。
 
-## License And Font Rights
+## License And Font Rights 授權與字型權利
 
-This project is licensed under MIT.
+本專案使用 MIT 授權。
 
-Input fonts remain under their original licenses. Generated fonts may only be used or distributed according to the input font license. This tool does not grant redistribution rights for third-party fonts.
+輸入字型仍受原始字型授權約束。產生後的字型只能依照原始輸入字型授權使用或散布。本工具不會授予第三方字型的再散布權利。
