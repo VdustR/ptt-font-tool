@@ -12,15 +12,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "audit":
+    if args.command in {"audit", "verify"}:
         result = audit_font(args.input, sample_text=args.sample_text)
         print(_format_audit_result(result))
-        return 0
-
-    if args.command == "verify":
-        result = audit_font(args.input, sample_text=args.sample_text)
-        print(_format_audit_result(result))
-        return 0 if result.ok else 1
+        return 0 if args.command == "audit" or result.ok else 1
 
     if args.command == "patch":
         output_path = Path(args.output) if args.output else default_output_path(args.input)
