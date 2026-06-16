@@ -97,6 +97,22 @@ class AuditFontTest(unittest.TestCase):
         self.assertEqual(checks["好"].status, "missing")
         self.assertIsNone(checks["好"].actual_advance)
 
+    def test_ignores_control_characters_in_sample_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            font_path = Path(directory) / "fixture.ttf"
+            _build_test_font(
+                font_path,
+                {
+                    "A": (600, 0),
+                    "uni6F22": (1200, 0),
+                    "uni02C7": (1200, 0),
+                },
+            )
+
+            result = audit_font(font_path, sample_text="A\n漢")
+
+        self.assertEqual([check.character for check in result.checks], ["A", "漢"])
+
     def test_scans_mapped_characters_when_sample_text_is_omitted(self):
         with tempfile.TemporaryDirectory() as directory:
             font_path = Path(directory) / "fixture.ttf"
