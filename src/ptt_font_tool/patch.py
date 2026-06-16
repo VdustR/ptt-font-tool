@@ -136,12 +136,15 @@ def _fit_glyphs(font, glyph_target_advances, strategy: str) -> None:
 
 def _fit_glyf_glyphs(font, glyph_target_advances, strategy: str) -> None:
     from fontTools.misc.transform import Transform
+    from fontTools.pens.filterPen import DecomposingFilterPen
     from fontTools.pens.transformPen import TransformPen
     from fontTools.pens.ttGlyphPen import TTGlyphPen
 
     glyf = font["glyf"]
     glyph_set = font.getGlyphSet()
     hmtx = font["hmtx"].metrics
+    transformed_glyphs = {}
+    transformed_metrics = {}
 
     for glyph_name, target_advance in glyph_target_advances.items():
         if glyph_name not in glyf:
@@ -149,13 +152,13 @@ def _fit_glyf_glyphs(font, glyph_target_advances, strategy: str) -> None:
 
         bounds = _glyph_bounds(glyph_set, glyph_name)
         if bounds is None:
-            hmtx[glyph_name] = (target_advance, 0)
+            transformed_metrics[glyph_name] = (target_advance, 0)
             continue
 
         x_min, _, x_max, _ = bounds
         outline_width = x_max - x_min
         if outline_width <= 0:
-            hmtx[glyph_name] = (target_advance, 0)
+            transformed_metrics[glyph_name] = (target_advance, 0)
             continue
 
         scale_x = _horizontal_scale(outline_width, target_advance, strategy)
@@ -164,9 +167,19 @@ def _fit_glyf_glyphs(font, glyph_target_advances, strategy: str) -> None:
 
         pen = TTGlyphPen(glyph_set)
         transform_pen = TransformPen(pen, Transform(scale_x, 0, 0, 1, dx, 0))
-        glyph_set[glyph_name].draw(transform_pen)
-        glyf[glyph_name] = pen.glyph()
-        hmtx[glyph_name] = (target_advance, round((target_advance - fitted_width) / 2))
+        decomposing_pen = DecomposingFilterPen(transform_pen, glyph_set)
+        glyph_set[glyph_name].draw(decomposing_pen)
+        transformed_glyphs[glyph_name] = pen.glyph()
+        transformed_metrics[glyph_name] = (
+            target_advance,
+            round((target_advance - fitted_width) / 2),
+        )
+
+    for glyph_name, glyph in transformed_glyphs.items():
+        glyf[glyph_name] = glyph
+
+    for glyph_name, metrics in transformed_metrics.items():
+        hmtx[glyph_name] = metrics
 
 
 def _fit_cff_glyphs(font, glyph_target_advances, strategy: str) -> None:
@@ -239,14 +252,19 @@ def _rename_font(font, family_name: str) -> None:
         1: family_name,
         4: full_name,
         6: postscript_name,
+        16: family_name,
     }
 
     for record in name_table.names:
         if record.nameID not in replacements:
             continue
 
+        encoding = record.getEncoding()
+        if encoding is None:
+            continue
+
         record.string = replacements[record.nameID].encode(
-            record.getEncoding(),
+            encoding,
             errors="replace",
         )
 
@@ -254,7 +272,7 @@ def _rename_font(font, family_name: str) -> None:
 def _postscript_name(family_name: str, style_name: str) -> str:
     normalized_family = re.sub(r"[^A-Za-z0-9]", "", family_name)
     normalized_style = re.sub(r"[^A-Za-z0-9]", "", style_name) or "Regular"
-    return f"{normalized_family}-{normalized_style}"
+    return f"{normalized_family}-{normalized_style}"[:63]
 
 
 def _unique_characters(sample_text: Union[str, Iterable[str]]) -> List[str]:

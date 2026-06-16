@@ -46,6 +46,7 @@ def _build_patch_fixture(path: Path) -> None:
     })
     builder.setupPost()
     builder.save(path)
+    _add_typographic_family_name(path, "Patch Fixture Typographic")
 
 
 def _build_shared_glyph_fixture(path: Path) -> None:
@@ -86,6 +87,12 @@ def _rectangle_glyph(x_min: int, x_max: int):
     return pen.glyph()
 
 
+def _component_glyph(base_glyph_name: str):
+    pen = TTGlyphPen({base_glyph_name: None})
+    pen.addComponent(base_glyph_name, (1, 0, 0, 1, 0, 0))
+    return pen.glyph()
+
+
 def _build_outline_fixture(path: Path) -> None:
     glyph_order = [".notdef", "wide"]
     glyphs = {
@@ -109,6 +116,39 @@ def _build_outline_fixture(path: Path) -> None:
         "uniqueFontIdentifier": "Outline Fixture Regular",
         "fullName": "Outline Fixture Regular",
         "psName": "OutlineFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+
+def _build_composite_outline_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "base", "composite"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "base": _rectangle_glyph(20, 780),
+        "composite": _component_glyph("base"),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({
+        ord("A"): "base",
+        ord("B"): "composite",
+    })
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "base": (800, 20),
+        "composite": (800, 20),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Composite Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Composite Fixture Regular",
+        "fullName": "Composite Fixture Regular",
+        "psName": "CompositeFixture-Regular",
     })
     builder.setupPost()
     builder.save(path)
@@ -171,13 +211,26 @@ def _glyph_bounds(font_path: Path, character: str):
 
 
 def _family_names(font_path: Path) -> set[str]:
+    return _names_by_id(font_path, {1, 4, 6, 16})
+
+
+def _names_by_id(font_path: Path, name_ids: set[int]) -> set[str]:
     font = TTFont(font_path)
     try:
         return {
             record.toUnicode()
             for record in font["name"].names
-            if record.nameID in {1, 4, 6}
+            if record.nameID in name_ids
         }
+    finally:
+        font.close()
+
+
+def _add_typographic_family_name(font_path: Path, family_name: str) -> None:
+    font = TTFont(font_path)
+    try:
+        font["name"].setName(family_name, 16, 3, 1, 0x409)
+        font.save(font_path)
     finally:
         font.close()
 
@@ -251,6 +304,26 @@ class PatchFontTest(unittest.TestCase):
 
         self.assertEqual(bounds, (0, 0, 500, 700))
 
+    def test_glyf_strategy_decomposes_composites_before_transforming(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_composite_outline_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="AB", strategy="center")
+
+            base_bounds = _glyph_bounds(output_path, "A")
+            composite_bounds = _glyph_bounds(output_path, "B")
+            font = TTFont(output_path)
+            try:
+                is_composite = font["glyf"]["composite"].isComposite()
+            finally:
+                font.close()
+
+        self.assertEqual(base_bounds, (-130, 0, 630, 700))
+        self.assertEqual(composite_bounds, base_bounds)
+        self.assertFalse(is_composite)
+
     def test_center_strategy_supports_cff_outlines(self):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "input.otf"
@@ -284,10 +357,12 @@ class PatchFontTest(unittest.TestCase):
             patch_font(input_path, output_path, sample_text="A")
 
             names = _family_names(output_path)
+            typographic_family_names = _names_by_id(output_path, {16})
 
         self.assertIn("Patch Fixture PTT", names)
         self.assertIn("Patch Fixture PTT Regular", names)
         self.assertIn("PatchFixturePTT-Regular", names)
+        self.assertEqual(typographic_family_names, {"Patch Fixture PTT"})
 
     def test_allows_custom_output_family_name(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -303,10 +378,30 @@ class PatchFontTest(unittest.TestCase):
             )
 
             names = _family_names(output_path)
+            typographic_family_names = _names_by_id(output_path, {16})
 
         self.assertIn("Custom PTT", names)
         self.assertIn("Custom PTT Regular", names)
         self.assertIn("CustomPTT-Regular", names)
+        self.assertEqual(typographic_family_names, {"Custom PTT"})
+
+    def test_truncates_postscript_name_to_open_type_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_patch_fixture(input_path)
+
+            patch_font(
+                input_path,
+                output_path,
+                sample_text="A",
+                family_name="Very Long Custom PTT Family Name " * 4,
+            )
+
+            postscript_names = _names_by_id(output_path, {6})
+
+        self.assertTrue(postscript_names)
+        self.assertTrue(all(len(name) <= 63 for name in postscript_names))
 
     def test_default_output_path_adds_ptt_before_extension(self):
         self.assertEqual(
