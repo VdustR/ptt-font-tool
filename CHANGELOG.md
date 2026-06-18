@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.2](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.1...ptt-font-tool-v0.4.2) (2026-06-18)
+
+
+### Bug Fixes
+
+* **patch:** remove extension pair positioning lookups ([644d4ca](https://github.com/VdustR/ptt-font-tool/commit/644d4ca5e24684ef43e2d4729252d35b77eb49c9))
+* **patch:** remove pair positioning from patched fonts ([c8b7236](https://github.com/VdustR/ptt-font-tool/commit/c8b7236bcf85e886cb32b4c0e508e7c123793457))
+* **patch:** remove pair positioning from patched fonts ([62ada23](https://github.com/VdustR/ptt-font-tool/commit/62ada239a9a0ef4e7e74b1257734f9178958bf48))
+
+
+### Documentation
+
+* document unsigned app launch and kerning behavior ([23e3c4e](https://github.com/VdustR/ptt-font-tool/commit/23e3c4ece8da9a8b4764a7596e011b6c96d8518c))
+* link desktop downloads to releases ([5d3057d](https://github.com/VdustR/ptt-font-tool/commit/5d3057d26f7d74f9015237374576cf0fb37b22da))
+* link desktop downloads to releases ([8c22d5c](https://github.com/VdustR/ptt-font-tool/commit/8c22d5ce2ba09cb91c900dbbec67e2333c6a8721))
+
 ## [0.4.1](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.0...ptt-font-tool-v0.4.1) (2026-06-18)
 
 
