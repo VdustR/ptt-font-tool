@@ -1,11 +1,18 @@
+import contextlib
+import io
 import tempfile
 import unittest
+from unittest.mock import patch
+from pathlib import PureWindowsPath
 from pathlib import Path
 
 from ptt_font_tool.release_packaging import (
+    clean_desktop_build_directories,
     desktop_bundle_path,
     desktop_release_artifact_name,
+    main,
     package_desktop_bundle,
+    _zip_archive_name,
 )
 
 
@@ -67,6 +74,55 @@ class ReleasePackagingTest(unittest.TestCase):
                 checksum.read_text(encoding="utf-8"),
                 r"^[0-9a-f]{64}  ptt-font-tool-v0\.4\.0-linux-x64\.tar\.gz\n$",
             )
+
+    def test_clean_keeps_existing_release_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dist_dir = root / "dist"
+            work_dir = root / "work"
+            output_dir = root / "release"
+            for path in (dist_dir, work_dir, output_dir):
+                path.mkdir()
+                (path / "artifact.txt").write_text("keep?\n", encoding="utf-8")
+
+            clean_desktop_build_directories(dist_dir=dist_dir, work_dir=work_dir)
+
+            self.assertFalse(dist_dir.exists())
+            self.assertFalse(work_dir.exists())
+            self.assertTrue((output_dir / "artifact.txt").exists())
+
+    def test_reports_missing_pyinstaller_before_building(self):
+        def fake_import(name, *args, **kwargs):
+            if name == "PyInstaller":
+                raise ModuleNotFoundError(name="PyInstaller")
+
+            return original_import(name, *args, **kwargs)
+
+        original_import = __import__
+        stderr = io.StringIO()
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            with contextlib.redirect_stderr(stderr):
+                exit_code = main([
+                    "--release",
+                    "v0.4.0",
+                    "--target-platform",
+                    "linux",
+                    "--arch",
+                    "x64",
+                ])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("PyInstaller is required", stderr.getvalue())
+
+    def test_zip_archive_names_always_use_forward_slashes(self):
+        self.assertEqual(
+            _zip_archive_name(
+                PureWindowsPath(r"C:\dist\PTT Font Tool\_internal\payload.txt"),
+                PureWindowsPath(r"C:\dist"),
+            ),
+            "PTT Font Tool/_internal/payload.txt",
+        )
 
 
 if __name__ == "__main__":

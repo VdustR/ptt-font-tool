@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tarfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Optional, Sequence
 
 
@@ -112,6 +112,9 @@ def write_sha256_file(artifact_path: Path) -> Path:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    if not _ensure_pyinstaller_available():
+        return 1
+
     args = _parse_args(argv)
     _validate_target_platform(args.target_platform)
 
@@ -122,9 +125,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     output_dir = args.output_dir.resolve()
 
     if args.clean:
-        shutil.rmtree(dist_dir, ignore_errors=True)
-        shutil.rmtree(work_dir, ignore_errors=True)
-        shutil.rmtree(output_dir, ignore_errors=True)
+        clean_desktop_build_directories(dist_dir=dist_dir, work_dir=work_dir)
 
     build_desktop_bundle(
         entry_script=entry_script,
@@ -208,6 +209,25 @@ def _validate_target_platform(target_platform: str) -> None:
         raise ValueError(f"Unsupported target platform: {target_platform}. Expected: {choices}")
 
 
+def clean_desktop_build_directories(*, dist_dir: Path, work_dir: Path) -> None:
+    shutil.rmtree(dist_dir, ignore_errors=True)
+    shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _ensure_pyinstaller_available() -> bool:
+    try:
+        import PyInstaller  # noqa: F401
+    except ModuleNotFoundError:
+        print(
+            "Error: PyInstaller is required to build the desktop release.\n"
+            "Install it with: pip install -e '.[desktop-build]'",
+            file=sys.stderr,
+        )
+        return False
+
+    return True
+
+
 def _sha256_digest(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:
@@ -239,7 +259,11 @@ def _write_macos_zip(source: Path, artifact_path: Path) -> None:
 def _write_zip(source: Path, artifact_path: Path) -> None:
     with zipfile.ZipFile(artifact_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(source.rglob("*")):
-            archive.write(path, path.relative_to(source.parent))
+            archive.write(path, _zip_archive_name(path, source.parent))
+
+
+def _zip_archive_name(path: PurePath, source_parent: PurePath) -> str:
+    return path.relative_to(source_parent).as_posix()
 
 
 if __name__ == "__main__":
