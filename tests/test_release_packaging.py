@@ -56,10 +56,39 @@ class ReleasePackagingTest(unittest.TestCase):
             entry_script=Path("/tmp/entry.py"),
             dist_dir=Path("/tmp/dist"),
             work_dir=Path("/tmp/work"),
+            target_platform="linux",
         )
 
         metadata_index = command.index("--copy-metadata")
         self.assertEqual(command[metadata_index + 1], "ptt-font-tool")
+
+    def test_pyinstaller_command_uses_platform_bundle_icons(self):
+        macos_command = build_pyinstaller_command(
+            entry_script=Path("/tmp/entry.py"),
+            dist_dir=Path("/tmp/dist"),
+            work_dir=Path("/tmp/work"),
+            target_platform="macos",
+        )
+        windows_command = build_pyinstaller_command(
+            entry_script=Path("/tmp/entry.py"),
+            dist_dir=Path("/tmp/dist"),
+            work_dir=Path("/tmp/work"),
+            target_platform="windows",
+        )
+        linux_command = build_pyinstaller_command(
+            entry_script=Path("/tmp/entry.py"),
+            dist_dir=Path("/tmp/dist"),
+            work_dir=Path("/tmp/work"),
+            target_platform="linux",
+        )
+
+        macos_icon_index = macos_command.index("--icon")
+        windows_icon_index = windows_command.index("--icon")
+        self.assertTrue(macos_command[macos_icon_index + 1].endswith("ptt-font-tool.icns"))
+        self.assertTrue(windows_command[windows_icon_index + 1].endswith("ptt-font-tool.ico"))
+        self.assertTrue(Path(macos_command[macos_icon_index + 1]).exists())
+        self.assertTrue(Path(windows_command[windows_icon_index + 1]).exists())
+        self.assertNotIn("--icon", linux_command)
 
     def test_packages_bundle_and_writes_checksum(self):
         with tempfile.TemporaryDirectory() as directory:

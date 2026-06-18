@@ -766,25 +766,52 @@ class MainWindow(QMainWindow):
             }
             QRadioButton {
                 color: #1f2825;
-                spacing: 6px;
+                spacing: 8px;
             }
             QRadioButton::indicator {
-                width: 13px;
-                height: 13px;
-                border-radius: 7px;
-                border: 1px solid #746c60;
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border: 2px solid #3f4944;
                 background: #fffdf8;
             }
             QRadioButton::indicator:hover {
                 border-color: #0d7265;
             }
+            QRadioButton:focus::indicator {
+                border-color: #0d7265;
+            }
             QRadioButton::indicator:checked {
-                border: 4px solid #0d7265;
-                background: #fffdf8;
+                border: 2px solid #0d7265;
+                background: qradialgradient(
+                    cx: 0.5,
+                    cy: 0.5,
+                    radius: 0.5,
+                    fx: 0.5,
+                    fy: 0.5,
+                    stop: 0 #0d7265,
+                    stop: 0.38 #0d7265,
+                    stop: 0.42 #fffdf8,
+                    stop: 1 #fffdf8
+                );
             }
             QRadioButton::indicator:disabled {
                 border-color: #b9b0a2;
                 background: #e9e4da;
+            }
+            QRadioButton::indicator:checked:disabled {
+                border-color: #8d8477;
+                background: qradialgradient(
+                    cx: 0.5,
+                    cy: 0.5,
+                    radius: 0.5,
+                    fx: 0.5,
+                    fy: 0.5,
+                    stop: 0 #6b716d,
+                    stop: 0.38 #6b716d,
+                    stop: 0.42 #e9e4da,
+                    stop: 1 #e9e4da
+                );
             }
             QPushButton {
                 background: #0d7265;
