@@ -73,12 +73,13 @@ class DesktopAppTest(unittest.TestCase):
 
     def test_formats_export_status(self):
         summary = AuditSummary(total=18432, ok=18432, missing=0, mismatch=0)
+        output_path = Path("/tmp/lithue-1.1-ptt.otf")
 
         self.assertEqual(
-            format_export_status(Path("/tmp/lithue-1.1-ptt.otf"), summary),
+            format_export_status(output_path, summary),
             "\n".join([
                 "Exported:",
-                "/tmp/lithue-1.1-ptt.otf",
+                str(output_path),
                 "Verified: 18,432/18,432 checks OK.",
             ]),
         )
