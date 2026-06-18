@@ -6,8 +6,8 @@ import sys
 import tempfile
 from typing import Optional, Sequence
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QFontDatabase, QIcon
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -47,6 +47,7 @@ from .desktop_model import (
     build_fallback_status,
 )
 from .fallback import PTT_REQUIRED_SYMBOLS
+from .update_check import UpdateCheckError, UpdateCheckResult, check_for_update
 
 
 class WorkerSignals(QObject):
@@ -56,6 +57,8 @@ class WorkerSignals(QObject):
     preview_failed = Signal(object)
     export_done = Signal(object)
     export_failed = Signal(str)
+    update_done = Signal(object)
+    update_failed = Signal(str)
 
 
 class MainWindow(QMainWindow):
@@ -71,6 +74,7 @@ class MainWindow(QMainWindow):
         self._load_future: Optional[Future] = None
         self._preview_future: Optional[Future] = None
         self._export_future: Optional[Future] = None
+        self._update_future: Optional[Future] = None
         self._load_request_id = 0
         self._preview_request_id = 0
         self._busy_messages: dict[str, str] = {}
@@ -81,6 +85,8 @@ class MainWindow(QMainWindow):
         self._signals.preview_failed.connect(self._patch_preview_failed)
         self._signals.export_done.connect(self._export_done)
         self._signals.export_failed.connect(self._export_failed)
+        self._signals.update_done.connect(self._update_done)
+        self._signals.update_failed.connect(self._update_failed)
         self._updating_ui = False
 
         self.setWindowTitle("PTT Font Tool")
@@ -105,12 +111,16 @@ class MainWindow(QMainWindow):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedWidth(150)
         self.progress_bar.hide()
+        self.update_button = QPushButton("Check updates")
+        self.update_button.setObjectName("SecondaryButton")
+        self.update_button.clicked.connect(self._check_for_updates)
         self.open_button = QPushButton("Open font...")
         self.open_button.clicked.connect(self._open_font)
         header.addWidget(title)
         header.addStretch(1)
         header.addWidget(self.busy_label)
         header.addWidget(self.progress_bar)
+        header.addWidget(self.update_button)
         header.addWidget(self.open_button)
         root_layout.addLayout(header)
 
@@ -430,6 +440,57 @@ class MainWindow(QMainWindow):
             self.progress_bar.hide()
 
         self.open_button.setEnabled(not self._busy_messages)
+        self.update_button.setEnabled(not self._busy_messages and self._update_future is None)
+
+    def _check_for_updates(self, *_args) -> None:
+        if self._update_future is not None and not self._update_future.done():
+            return
+
+        self._set_busy("update", "Checking updates...")
+        self._set_font_controls_enabled(self._state is not None)
+        self._update_future = self._executor.submit(check_for_update)
+        self._update_future.add_done_callback(self._update_check_finished)
+
+    def _update_check_finished(self, future: Future) -> None:
+        try:
+            result = future.result()
+        except Exception as error:
+            self._signals.update_failed.emit(str(error))
+            return
+
+        self._signals.update_done.emit(result)
+
+    def _update_done(self, result: UpdateCheckResult) -> None:
+        self._update_future = None
+        self._set_busy("update", None)
+        self._set_font_controls_enabled(self._state is not None)
+        if not result.update_available:
+            QMessageBox.information(
+                self,
+                "No update available",
+                f"PTT Font Tool {result.current_version} is the latest release.",
+            )
+            return
+
+        message = QMessageBox(self)
+        message.setWindowTitle("Update available")
+        message.setText(
+            f"PTT Font Tool {result.latest.version} is available.\n"
+            f"You are using {result.current_version}."
+        )
+        message.setInformativeText("Open the GitHub release page to download it.")
+        open_button = message.addButton("Open release", QMessageBox.ButtonRole.AcceptRole)
+        message.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
+        message.exec()
+        if message.clickedButton() == open_button:
+            QDesktopServices.openUrl(QUrl(result.latest.url))
+
+    def _update_failed(self, error: str) -> None:
+        self._update_future = None
+        self._set_busy("update", None)
+        self._set_font_controls_enabled(self._state is not None)
+        message = error if error else str(UpdateCheckError("Could not check for updates."))
+        QMessageBox.warning(self, "Could not check for updates", message)
 
     def _reset_sidebar_scroll(self) -> None:
         def reset() -> None:
