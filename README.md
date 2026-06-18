@@ -1,5 +1,9 @@
 # PTT Font Tool
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/VdustR/ptt-font-tool/main/src/ptt_font_tool/assets/app_icon/ptt-font-tool.png" width="160" alt="PTT Font Tool icon">
+</p>
+
 桌面版、CLI 與 Python library 工具，用來把字型調整成適合 term.ptt.cc 終端機格線的版本。
 
 ## Desktop
