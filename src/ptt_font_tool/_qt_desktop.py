@@ -771,14 +771,14 @@ class MainWindow(QMainWindow):
             QRadioButton::indicator {
                 width: 16px;
                 height: 16px;
-                border-radius: 9px;
+                border-radius: 8px;
                 border: 2px solid #3f4944;
                 background: #fffdf8;
             }
             QRadioButton::indicator:hover {
                 border-color: #0d7265;
             }
-            QRadioButton::indicator:focus {
+            QRadioButton:focus::indicator {
                 border-color: #0d7265;
             }
             QRadioButton::indicator:checked {
