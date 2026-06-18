@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.boundsPen import BoundsPen
@@ -136,6 +137,45 @@ class FallbackTest(unittest.TestCase):
 
         self.assertGreaterEqual(x_min, 0)
         self.assertLessEqual(x_max, 1000)
+
+    def test_merge_missing_glyphs_closes_open_fonts_if_fallback_open_fails(self):
+        closed_fonts: list[str] = []
+
+        class FakeFont:
+            def __init__(self, label: str) -> None:
+                self.label = label
+
+            def __contains__(self, key: str) -> bool:
+                return key == "glyf"
+
+            def getBestCmap(self) -> dict[int, str]:
+                return {}
+
+            def close(self) -> None:
+                closed_fonts.append(self.label)
+
+        def open_font(path: Path):
+            name = Path(path).name
+            if name == "fallback-two.ttf":
+                raise RuntimeError("failed to open fallback")
+
+            return FakeFont(name)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch("ptt_font_tool.fallback._open_font", side_effect=open_font):
+                with self.assertRaises(RuntimeError):
+                    merge_missing_glyphs(
+                        root / "target.ttf",
+                        root / "merged.ttf",
+                        fallback_paths=[
+                            root / "fallback-one.ttf",
+                            root / "fallback-two.ttf",
+                        ],
+                        required_chars="←",
+                    )
+
+        self.assertCountEqual(closed_fonts, ["target.ttf", "fallback-one.ttf"])
 
 
 if __name__ == "__main__":

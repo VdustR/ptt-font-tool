@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, Union
@@ -42,13 +43,19 @@ def merge_missing_glyphs(
     required_chars: Union[str, Iterable[str]],
 ) -> MergeGlyphsResult:
     target_path = Path(input_path)
-    target = _open_font(target_path)
-    fallback_fonts = [(Path(path), _open_font(path)) for path in fallback_paths]
-
-    try:
+    with ExitStack() as stack:
+        target = _open_managed_font(stack, target_path)
         _validate_glyf_font(target, target_path)
-        for path, font in fallback_fonts:
-            _validate_glyf_font(font, path)
+        fallback_fonts = []
+        for path in fallback_paths:
+            fallback_path = Path(path)
+            fallback_font = _open_managed_font(stack, fallback_path)
+            _validate_glyf_font(fallback_font, fallback_path)
+            fallback_fonts.append((
+                fallback_path,
+                fallback_font,
+                fallback_font.getBestCmap() or {},
+            ))
 
         profile = TermPttProfile.from_units_per_em(int(target["head"].unitsPerEm))
         target_cmap = target.getBestCmap() or {}
@@ -89,10 +96,6 @@ def merge_missing_glyphs(
             unresolved=unresolved,
             sources=sources,
         )
-    finally:
-        target.close()
-        for _, font in fallback_fonts:
-            font.close()
 
 
 def _open_font(font_path: Union[str, Path]):
@@ -104,6 +107,12 @@ def _open_font(font_path: Union[str, Path]):
     return TTFont(Path(font_path))
 
 
+def _open_managed_font(stack: ExitStack, font_path: Union[str, Path]):
+    font = _open_font(font_path)
+    stack.callback(font.close)
+    return font
+
+
 def _validate_glyf_font(font, path: Path) -> None:
     if "glyf" not in font:
         raise ValueError(f"fallback glyph merge currently supports TrueType/glyf fonts only: {path}")
@@ -111,8 +120,8 @@ def _validate_glyf_font(font, path: Path) -> None:
 
 def _find_fallback_glyph(character: str, fallback_fonts):
     codepoint = ord(character)
-    for path, font in fallback_fonts:
-        glyph_name = (font.getBestCmap() or {}).get(codepoint)
+    for path, font, cmap in fallback_fonts:
+        glyph_name = cmap.get(codepoint)
         if glyph_name is not None:
             return path, font, glyph_name
 
