@@ -193,7 +193,7 @@ def _remove_pair_positioning(font) -> None:
     removed_lookup_indices = {
         index
         for index, lookup in enumerate(old_lookups)
-        if lookup.LookupType == 2
+        if _is_pair_positioning_lookup(lookup)
     }
     if not removed_lookup_indices:
         return
@@ -215,6 +215,19 @@ def _remove_pair_positioning(font) -> None:
     lookup_list.Lookup = new_lookups
     lookup_list.LookupCount = len(new_lookups)
     _remap_gpos_script_features(gpos, feature_index_map)
+
+
+def _is_pair_positioning_lookup(lookup) -> bool:
+    if lookup.LookupType == 2:
+        return True
+
+    if lookup.LookupType != 9:
+        return False
+
+    return any(
+        getattr(subtable, "ExtensionLookupType", None) == 2
+        for subtable in getattr(lookup, "SubTable", [])
+    )
 
 
 def _remove_empty_gpos_features(gpos, lookup_index_map) -> dict[int, int]:

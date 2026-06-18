@@ -205,7 +205,7 @@ def _build_mixed_ligature_fixture(path: Path) -> None:
         font.close()
 
 
-def _build_pair_positioning_fixture(path: Path) -> None:
+def _build_pair_positioning_fixture(path: Path, *, use_extension: bool = False) -> None:
     glyph_order = [".notdef", "A", "V"]
     glyphs = {
         ".notdef": _empty_glyph(),
@@ -239,7 +239,19 @@ def _build_pair_positioning_fixture(path: Path) -> None:
 
     font = TTFont(path)
     try:
-        addOpenTypeFeaturesFromString(font, "feature kern { pos A V -120; } kern;")
+        if use_extension:
+            features = """
+lookup kernExt useExtension {
+  pos A V -120;
+} kernExt;
+feature kern {
+  lookup kernExt;
+} kern;
+"""
+        else:
+            features = "feature kern { pos A V -120; } kern;"
+
+        addOpenTypeFeaturesFromString(font, features)
         font.save(path)
     finally:
         font.close()
@@ -512,6 +524,20 @@ class PatchFontTest(unittest.TestCase):
 
         self.assertIn(2, original_lookup_types)
         self.assertNotIn(2, patched_lookup_types)
+
+    def test_removes_extension_pair_positioning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_pair_positioning_fixture(input_path, use_extension=True)
+
+            original_lookup_types = _gpos_lookup_types(input_path)
+            patch_font(input_path, output_path, sample_text="AV", strategy="center")
+
+            patched_lookup_types = _gpos_lookup_types(output_path)
+
+        self.assertIn(9, original_lookup_types)
+        self.assertNotIn(9, patched_lookup_types)
 
     def test_glyf_strategy_decomposes_composites_before_transforming(self):
         with tempfile.TemporaryDirectory() as directory:
