@@ -35,4 +35,4 @@ Issues = "https://github.com/VdustR/ptt-font-tool/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ptt_font_tool = ["assets/app_icon/*.png"]
+ptt_font_tool = ["assets/app_icon/*.png", "fonts/*"]
