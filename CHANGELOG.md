@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.2.0...ptt-font-tool-v0.3.0) (2026-06-18)
+
+
+### Features
+
+* **desktop:** add app icon ([b71dfdd](https://github.com/VdustR/ptt-font-tool/commit/b71dfdd4a0137608bca5f718468e396974635d9f))
+
 ## [0.2.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.1.0...ptt-font-tool-v0.2.0) (2026-06-18)
 
 
