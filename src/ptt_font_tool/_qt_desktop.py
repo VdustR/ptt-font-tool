@@ -7,7 +7,7 @@ import tempfile
 from typing import Optional, Sequence
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QFontDatabase
+from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -84,6 +84,9 @@ class MainWindow(QMainWindow):
         self._updating_ui = False
 
         self.setWindowTitle("PTT Font Tool")
+        app_icon = _app_icon()
+        if not app_icon.isNull():
+            self.setWindowIcon(app_icon)
         self.resize(1120, 820)
 
         root = QWidget()
@@ -789,6 +792,9 @@ class MainWindow(QMainWindow):
 
 def run(argv: Optional[Sequence[str]] = None) -> int:
     app = QApplication(list(argv) if argv is not None else sys.argv)
+    app_icon = _app_icon()
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
     window = MainWindow()
     window.show()
     return app.exec()
@@ -823,3 +829,11 @@ def _default_noto_fallback_paths() -> list[Path]:
 
 def _package_font_dir() -> Path:
     return Path(__file__).with_name("fonts")
+
+
+def _app_icon() -> QIcon:
+    icon_path = Path(__file__).with_name("assets") / "app_icon" / "ptt-font-tool.png"
+    if not icon_path.exists():
+        return QIcon()
+
+    return QIcon(str(icon_path))
