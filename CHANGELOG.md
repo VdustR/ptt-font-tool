@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.2...ptt-font-tool-v0.4.3) (2026-06-18)
+
+
+### Bug Fixes
+
+* **desktop:** bundle CA certificates for update checks ([0aa30e4](https://github.com/VdustR/ptt-font-tool/commit/0aa30e40b9b6221c4fc14e2fbf16ab9110a26ae0))
+* **desktop:** bundle CA certificates for update checks ([bc389c1](https://github.com/VdustR/ptt-font-tool/commit/bc389c165d9730b73c4d0e44011b979a8eaed54b))
+
 ## [0.4.2](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.1...ptt-font-tool-v0.4.2) (2026-06-18)
 
 
