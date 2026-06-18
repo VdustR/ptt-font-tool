@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.3.0...ptt-font-tool-v0.4.0) (2026-06-18)
+
+
+### Features
+
+* **desktop:** add release update check ([8de2062](https://github.com/VdustR/ptt-font-tool/commit/8de2062759f786dd60d48d92adf7fee97e736222))
+
 ## [0.3.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.2.0...ptt-font-tool-v0.3.0) (2026-06-18)
 
 
