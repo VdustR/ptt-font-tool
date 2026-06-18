@@ -205,6 +205,58 @@ def _build_mixed_ligature_fixture(path: Path) -> None:
         font.close()
 
 
+def _build_pair_positioning_fixture(path: Path, *, use_extension: bool = False) -> None:
+    glyph_order = [".notdef", "A", "V"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "A": _rectangle_glyph(100, 500),
+        "V": _rectangle_glyph(100, 500),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({
+        ord("A"): "A",
+        ord("V"): "V",
+    })
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "A": (700, 100),
+        "V": (700, 100),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Pair Positioning Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Pair Positioning Fixture Regular",
+        "fullName": "Pair Positioning Fixture Regular",
+        "psName": "PairPositioningFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+    font = TTFont(path)
+    try:
+        if use_extension:
+            features = """
+lookup kernExt useExtension {
+  pos A V -120;
+} kernExt;
+feature kern {
+  lookup kernExt;
+} kern;
+"""
+        else:
+            features = "feature kern { pos A V -120; } kern;"
+
+        addOpenTypeFeaturesFromString(font, features)
+        font.save(path)
+    finally:
+        font.close()
+
+
 def _build_composite_outline_fixture(path: Path) -> None:
     glyph_order = [".notdef", "base", "composite"]
     glyphs = {
@@ -309,6 +361,18 @@ def _glyph_metrics(font_path: Path, glyph_name: str) -> tuple[int, int]:
     font = TTFont(font_path)
     try:
         return font["hmtx"].metrics[glyph_name]
+    finally:
+        font.close()
+
+
+def _gpos_lookup_types(font_path: Path) -> list[int]:
+    font = TTFont(font_path)
+    try:
+        if "GPOS" not in font:
+            return []
+
+        lookup_list = font["GPOS"].table.LookupList
+        return [lookup.LookupType for lookup in lookup_list.Lookup]
     finally:
         font.close()
 
@@ -446,6 +510,34 @@ class PatchFontTest(unittest.TestCase):
 
         self.assertEqual(ligature_metrics, (1000, 0))
         self.assertEqual(ligature_bounds, (0, 0, 1000, 700))
+
+    def test_removes_pair_positioning_that_breaks_terminal_cell_advances(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_pair_positioning_fixture(input_path)
+
+            original_lookup_types = _gpos_lookup_types(input_path)
+            patch_font(input_path, output_path, sample_text="AV", strategy="center")
+
+            patched_lookup_types = _gpos_lookup_types(output_path)
+
+        self.assertIn(2, original_lookup_types)
+        self.assertNotIn(2, patched_lookup_types)
+
+    def test_removes_extension_pair_positioning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_pair_positioning_fixture(input_path, use_extension=True)
+
+            original_lookup_types = _gpos_lookup_types(input_path)
+            patch_font(input_path, output_path, sample_text="AV", strategy="center")
+
+            patched_lookup_types = _gpos_lookup_types(output_path)
+
+        self.assertIn(9, original_lookup_types)
+        self.assertNotIn(9, patched_lookup_types)
 
     def test_glyf_strategy_decomposes_composites_before_transforming(self):
         with tempfile.TemporaryDirectory() as directory:

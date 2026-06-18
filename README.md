@@ -55,6 +55,31 @@ Get-FileHash .\ptt-font-tool-vX.Y.Z-windows-x64.zip -Algorithm SHA256
 
 再與 `.sha256` 檔案內容比對。
 
+### macOS 手動開啟未簽章版本
+
+只對你信任來源的版本使用這個方式，例如本 repository 的 GitHub Releases。不要對不明來源下載的 app 套用例外。
+
+如果 macOS 阻擋開啟未簽章的 `PTT Font Tool.app`：
+
+1. 先雙擊 `PTT Font Tool.app`，讓 macOS 顯示一次安全提醒。
+2. 打開 **System Settings** → **Privacy & Security**。
+3. 往下找到 **Security** 區塊，按 **Open Anyway**。
+4. 再按 **Open** 確認。
+
+如果 **Open Anyway** 沒出現，可以只針對這個 app 移除 quarantine 屬性：
+
+```bash
+xattr -dr com.apple.quarantine "$HOME/Downloads/PTT Font Tool.app"
+```
+
+如果你已經把 app 移到 `/Applications`：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/PTT Font Tool.app"
+```
+
+不建議全域關閉 Gatekeeper。上面的方式只會替單一 app 建立例外。
+
 ## CLI
 
 CLI 用於可重複執行的本機流程與自動化。
@@ -84,6 +109,8 @@ ptt-font patch lithue-1.1.otf --sample-text "A漢ˇ"
 
 - `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell，允許視覺上溢出或重疊。
 - `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。
+
+處理後的字型會移除 OpenType `GPOS` pair positioning/kerning，避免瀏覽器 shaping 時微調字距而破壞終端機固定格線。
 
 ## Library
 

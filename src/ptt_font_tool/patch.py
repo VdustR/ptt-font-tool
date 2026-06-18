@@ -101,6 +101,7 @@ def patch_font(
                 )
 
         _patch_ligature_glyph_advances(font, glyph_target_advances)
+        _remove_pair_positioning(font)
         _fit_glyphs(font, glyph_target_advances, strategy)
         _rename_font(font, family_name or _default_family_name(font))
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,6 +178,114 @@ def _gsub_ligature_sets(font):
         for subtable in lookup.SubTable:
             for first_glyph, ligatures in getattr(subtable, "ligatures", {}).items():
                 yield first_glyph, ligatures
+
+
+def _remove_pair_positioning(font) -> None:
+    if "GPOS" not in font:
+        return
+
+    gpos = font["GPOS"].table
+    lookup_list = getattr(gpos, "LookupList", None)
+    if lookup_list is None:
+        return
+
+    old_lookups = list(lookup_list.Lookup)
+    removed_lookup_indices = {
+        index
+        for index, lookup in enumerate(old_lookups)
+        if _is_pair_positioning_lookup(lookup)
+    }
+    if not removed_lookup_indices:
+        return
+
+    index_map = {}
+    new_lookups = []
+    for index, lookup in enumerate(old_lookups):
+        if index in removed_lookup_indices:
+            continue
+
+        index_map[index] = len(new_lookups)
+        new_lookups.append(lookup)
+
+    feature_index_map = _remove_empty_gpos_features(gpos, index_map)
+    if not new_lookups or not feature_index_map:
+        del font["GPOS"]
+        return
+
+    lookup_list.Lookup = new_lookups
+    lookup_list.LookupCount = len(new_lookups)
+    _remap_gpos_script_features(gpos, feature_index_map)
+
+
+def _is_pair_positioning_lookup(lookup) -> bool:
+    if lookup.LookupType == 2:
+        return True
+
+    if lookup.LookupType != 9:
+        return False
+
+    return any(
+        getattr(subtable, "ExtensionLookupType", None) == 2
+        for subtable in getattr(lookup, "SubTable", [])
+    )
+
+
+def _remove_empty_gpos_features(gpos, lookup_index_map) -> dict[int, int]:
+    feature_list = getattr(gpos, "FeatureList", None)
+    if feature_list is None:
+        return {}
+
+    feature_index_map = {}
+    new_feature_records = []
+    for feature_index, feature_record in enumerate(feature_list.FeatureRecord):
+        new_lookup_indices = [
+            lookup_index_map[index]
+            for index in feature_record.Feature.LookupListIndex
+            if index in lookup_index_map
+        ]
+        if not new_lookup_indices:
+            continue
+
+        feature_record.Feature.LookupListIndex = new_lookup_indices
+        feature_record.Feature.LookupCount = len(new_lookup_indices)
+        feature_index_map[feature_index] = len(new_feature_records)
+        new_feature_records.append(feature_record)
+
+    feature_list.FeatureRecord = new_feature_records
+    feature_list.FeatureCount = len(new_feature_records)
+    return feature_index_map
+
+
+def _remap_gpos_script_features(gpos, feature_index_map: dict[int, int]) -> None:
+    script_list = getattr(gpos, "ScriptList", None)
+    if script_list is None:
+        return
+
+    for script_record in script_list.ScriptRecord:
+        script = script_record.Script
+        default_lang_sys = getattr(script, "DefaultLangSys", None)
+        if default_lang_sys is not None:
+            _remap_lang_sys_features(default_lang_sys, feature_index_map)
+
+        for lang_sys_record in getattr(script, "LangSysRecord", []):
+            _remap_lang_sys_features(lang_sys_record.LangSys, feature_index_map)
+
+
+def _remap_lang_sys_features(lang_sys, feature_index_map: dict[int, int]) -> None:
+    lang_sys.FeatureIndex = [
+        feature_index_map[index]
+        for index in lang_sys.FeatureIndex
+        if index in feature_index_map
+    ]
+    lang_sys.FeatureCount = len(lang_sys.FeatureIndex)
+
+    if lang_sys.ReqFeatureIndex == 0xFFFF:
+        return
+
+    lang_sys.ReqFeatureIndex = feature_index_map.get(
+        lang_sys.ReqFeatureIndex,
+        0xFFFF,
+    )
 
 
 def _fit_glyphs(font, glyph_target_advances, strategy: str) -> None:
