@@ -19,6 +19,8 @@
 
 桌面版會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行。
 
+下載桌面版請前往 [GitHub Releases](https://github.com/VdustR/ptt-font-tool/releases/latest)，選擇最新版中的 macOS、Windows 或 Linux artifact。
+
 目前本地 prototype 可以用 desktop extra 啟動：
 
 ```bash
