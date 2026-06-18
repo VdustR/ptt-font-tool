@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Union
@@ -100,7 +101,15 @@ def _unique_characters(sample_text: Union[str, Iterable[str]]) -> List[str]:
         if len(character) != 1:
             raise ValueError("sample_text must contain single Unicode code points")
 
-    return unique
+    return [
+        character
+        for character in unique
+        if not _is_control_character(character)
+    ]
+
+
+def _is_control_character(character: str) -> bool:
+    return unicodedata.category(character).startswith("C")
 
 
 def _target_characters(

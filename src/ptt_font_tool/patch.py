@@ -100,6 +100,7 @@ def patch_font(
                     )
                 )
 
+        _patch_ligature_glyph_advances(font, glyph_target_advances)
         _fit_glyphs(font, glyph_target_advances, strategy)
         _rename_font(font, family_name or _default_family_name(font))
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,6 +120,63 @@ def patch_font(
 def _validate_strategy(strategy: str) -> None:
     if strategy not in {"center", "fit"}:
         raise ValueError("strategy must be 'center' or 'fit'")
+
+
+def _patch_ligature_glyph_advances(font, glyph_target_advances) -> None:
+    if "GSUB" not in font or not glyph_target_advances:
+        return
+
+    hmtx = font["hmtx"].metrics
+    for first_glyph, ligatures in _gsub_ligature_sets(font):
+        for ligature in ligatures:
+            component_glyphs = [first_glyph, *ligature.Component]
+            component_advances = []
+            for glyph_name in component_glyphs:
+                advance = glyph_target_advances.get(glyph_name)
+                if advance is None:
+                    glyph_metrics = hmtx.get(glyph_name)
+                    if glyph_metrics is None:
+                        component_advances = []
+                        break
+
+                    advance = glyph_metrics[0]
+
+                component_advances.append(advance)
+
+            if not component_advances:
+                continue
+
+            target_advance = sum(component_advances)
+            if target_advance <= 0:
+                continue
+
+            _, old_left_side_bearing = hmtx.get(
+                ligature.LigGlyph,
+                (target_advance, 0),
+            )
+            glyph_target_advances[ligature.LigGlyph] = max(
+                target_advance,
+                glyph_target_advances.get(ligature.LigGlyph, 0),
+            )
+            hmtx[ligature.LigGlyph] = (
+                glyph_target_advances[ligature.LigGlyph],
+                old_left_side_bearing,
+            )
+
+
+def _gsub_ligature_sets(font):
+    gsub = font["GSUB"].table
+    lookup_list = getattr(gsub, "LookupList", None)
+    if lookup_list is None:
+        return
+
+    for lookup in lookup_list.Lookup:
+        if lookup.LookupType != 4:
+            continue
+
+        for subtable in lookup.SubTable:
+            for first_glyph, ligatures in getattr(subtable, "ligatures", {}).items():
+                yield first_glyph, ligatures
 
 
 def _fit_glyphs(font, glyph_target_advances, strategy: str) -> None:

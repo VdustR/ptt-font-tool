@@ -15,6 +15,15 @@
 
 桌面版會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行。
 
+目前本地 prototype 可以用 desktop extra 啟動：
+
+```bash
+python -m pip install -e '.[desktop]'
+ptt-font-desktop
+```
+
+prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
+
 ## CLI
 
 CLI 用於可重複執行的本機流程與自動化。

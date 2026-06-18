@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from fontTools.fontBuilder import FontBuilder
+from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
@@ -121,6 +122,89 @@ def _build_outline_fixture(path: Path) -> None:
     builder.save(path)
 
 
+def _build_ligature_fixture(
+    path: Path,
+    *,
+    doublef_bounds: tuple[int, int] = (100, 860),
+) -> None:
+    glyph_order = [".notdef", "f", "doublef"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "f": _rectangle_glyph(100, 420),
+        "doublef": _rectangle_glyph(*doublef_bounds),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({ord("f"): "f"})
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "f": (700, 100),
+        "doublef": (760, 100),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Ligature Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Ligature Fixture Regular",
+        "fullName": "Ligature Fixture Regular",
+        "psName": "LigatureFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+    font = TTFont(path)
+    try:
+        addOpenTypeFeaturesFromString(font, "feature liga { sub f f by doublef; } liga;")
+        font.save(path)
+    finally:
+        font.close()
+
+
+def _build_mixed_ligature_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "f", "i", "fi"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "f": _rectangle_glyph(100, 420),
+        "i": _rectangle_glyph(100, 260),
+        "fi": _rectangle_glyph(100, 700),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({
+        ord("f"): "f",
+        ord("i"): "i",
+    })
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "f": (700, 100),
+        "i": (300, 100),
+        "fi": (760, 100),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Mixed Ligature Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Mixed Ligature Fixture Regular",
+        "fullName": "Mixed Ligature Fixture Regular",
+        "psName": "MixedLigatureFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+    font = TTFont(path)
+    try:
+        addOpenTypeFeaturesFromString(font, "feature liga { sub f i by fi; } liga;")
+        font.save(path)
+    finally:
+        font.close()
+
+
 def _build_composite_outline_fixture(path: Path) -> None:
     glyph_order = [".notdef", "base", "composite"]
     glyphs = {
@@ -206,6 +290,25 @@ def _glyph_bounds(font_path: Path, character: str):
         pen = BoundsPen(glyph_set)
         glyph_set[glyph_name].draw(pen)
         return pen.bounds
+    finally:
+        font.close()
+
+
+def _glyph_bounds_by_name(font_path: Path, glyph_name: str):
+    font = TTFont(font_path)
+    try:
+        glyph_set = font.getGlyphSet()
+        pen = BoundsPen(glyph_set)
+        glyph_set[glyph_name].draw(pen)
+        return pen.bounds
+    finally:
+        font.close()
+
+
+def _glyph_metrics(font_path: Path, glyph_name: str) -> tuple[int, int]:
+    font = TTFont(font_path)
+    try:
+        return font["hmtx"].metrics[glyph_name]
     finally:
         font.close()
 
@@ -303,6 +406,46 @@ class PatchFontTest(unittest.TestCase):
             bounds = _glyph_bounds(output_path, "A")
 
         self.assertEqual(bounds, (0, 0, 500, 700))
+
+    def test_patches_ligature_advance_to_component_advance_sum_and_centers_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_ligature_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="f", strategy="center")
+
+            ligature_metrics = _glyph_metrics(output_path, "doublef")
+            ligature_bounds = _glyph_bounds_by_name(output_path, "doublef")
+
+        self.assertEqual(ligature_metrics, (1000, 120))
+        self.assertEqual(ligature_bounds, (120, 0, 880, 700))
+
+    def test_ligature_uses_original_advance_for_unpatched_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_mixed_ligature_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="f", strategy="center")
+
+            ligature_metrics = _glyph_metrics(output_path, "fi")
+
+        self.assertEqual(ligature_metrics, (800, 100))
+
+    def test_fit_strategy_scales_oversized_ligature_to_component_advance_sum(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_ligature_fixture(input_path, doublef_bounds=(0, 1400))
+
+            patch_font(input_path, output_path, sample_text="f", strategy="fit")
+
+            ligature_metrics = _glyph_metrics(output_path, "doublef")
+            ligature_bounds = _glyph_bounds_by_name(output_path, "doublef")
+
+        self.assertEqual(ligature_metrics, (1000, 0))
+        self.assertEqual(ligature_bounds, (0, 0, 1000, 700))
 
     def test_glyf_strategy_decomposes_composites_before_transforming(self):
         with tempfile.TemporaryDirectory() as directory:
