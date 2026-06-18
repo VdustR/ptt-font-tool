@@ -163,6 +163,48 @@ def _build_ligature_fixture(
         font.close()
 
 
+def _build_mixed_ligature_fixture(path: Path) -> None:
+    glyph_order = [".notdef", "f", "i", "fi"]
+    glyphs = {
+        ".notdef": _empty_glyph(),
+        "f": _rectangle_glyph(100, 420),
+        "i": _rectangle_glyph(100, 260),
+        "fi": _rectangle_glyph(100, 700),
+    }
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({
+        ord("f"): "f",
+        ord("i"): "i",
+    })
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "f": (700, 100),
+        "i": (300, 100),
+        "fi": (760, 100),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": "Mixed Ligature Fixture",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "Mixed Ligature Fixture Regular",
+        "fullName": "Mixed Ligature Fixture Regular",
+        "psName": "MixedLigatureFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+    font = TTFont(path)
+    try:
+        addOpenTypeFeaturesFromString(font, "feature liga { sub f i by fi; } liga;")
+        font.save(path)
+    finally:
+        font.close()
+
+
 def _build_composite_outline_fixture(path: Path) -> None:
     glyph_order = [".notdef", "base", "composite"]
     glyphs = {
@@ -378,6 +420,18 @@ class PatchFontTest(unittest.TestCase):
 
         self.assertEqual(ligature_metrics, (1000, 120))
         self.assertEqual(ligature_bounds, (120, 0, 880, 700))
+
+    def test_ligature_uses_original_advance_for_unpatched_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.ttf"
+            output_path = Path(directory) / "output.ttf"
+            _build_mixed_ligature_fixture(input_path)
+
+            patch_font(input_path, output_path, sample_text="f", strategy="center")
+
+            ligature_metrics = _glyph_metrics(output_path, "fi")
+
+        self.assertEqual(ligature_metrics, (800, 100))
 
     def test_fit_strategy_scales_oversized_ligature_to_component_advance_sum(self):
         with tempfile.TemporaryDirectory() as directory:

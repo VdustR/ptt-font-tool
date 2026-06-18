@@ -134,8 +134,12 @@ def _patch_ligature_glyph_advances(font, glyph_target_advances) -> None:
             for glyph_name in component_glyphs:
                 advance = glyph_target_advances.get(glyph_name)
                 if advance is None:
-                    component_advances = []
-                    break
+                    glyph_metrics = hmtx.get(glyph_name)
+                    if glyph_metrics is None:
+                        component_advances = []
+                        break
+
+                    advance = glyph_metrics[0]
 
                 component_advances.append(advance)
 
