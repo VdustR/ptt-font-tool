@@ -112,11 +112,11 @@ def write_sha256_file(artifact_path: Path) -> Path:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    if not _ensure_pyinstaller_available():
-        return 1
-
     args = _parse_args(argv)
     _validate_target_platform(args.target_platform)
+
+    if not _ensure_pyinstaller_available():
+        return 1
 
     repo_root = args.repo_root.resolve()
     entry_script = args.entry_script.resolve()

@@ -2,9 +2,8 @@ import contextlib
 import io
 import tempfile
 import unittest
+from pathlib import Path, PureWindowsPath
 from unittest.mock import patch
-from pathlib import PureWindowsPath
-from pathlib import Path
 
 from ptt_font_tool.release_packaging import (
     clean_desktop_build_directories,
@@ -114,6 +113,24 @@ class ReleasePackagingTest(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("PyInstaller is required", stderr.getvalue())
+
+    def test_help_does_not_require_pyinstaller(self):
+        def fake_import(name, *args, **kwargs):
+            if name == "PyInstaller":
+                raise ModuleNotFoundError(name="PyInstaller")
+
+            return original_import(name, *args, **kwargs)
+
+        original_import = __import__
+        stdout = io.StringIO()
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            with contextlib.redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as error:
+                    main(["--help"])
+
+        self.assertEqual(error.exception.code, 0)
+        self.assertIn("Build desktop release artifacts", stdout.getvalue())
 
     def test_zip_archive_names_always_use_forward_slashes(self):
         self.assertEqual(
