@@ -28,14 +28,32 @@ ptt-font-desktop
 
 prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
 
+桌面版可以檢查 GitHub Releases 是否有新版；目前只會提示並開啟 release 頁面，不會自動下載、替換或執行更新檔。
+
 Release 會由 GitHub Actions 自動產生桌面版 artifacts：
 
-- `macos-arm64`
-- `macos-x64`
-- `windows-x64`
-- `linux-x64`
+- `ptt-font-tool-vX.Y.Z-macos-arm64.zip`
+- `ptt-font-tool-vX.Y.Z-macos-x64.zip`
+- `ptt-font-tool-vX.Y.Z-windows-x64.zip`
+- `ptt-font-tool-vX.Y.Z-linux-x64.tar.gz`
 
 每個 artifact 會一起上傳對應的 `.sha256` checksum 檔。
+
+目前桌面版 artifacts 尚未 code sign 或 notarize。macOS 與 Windows 第一次開啟下載版 app 時，可能會出現作業系統安全提醒；請只從本 repository 的 GitHub Releases 下載。
+
+下載後可以先驗證 checksum：
+
+```bash
+shasum -a 256 -c ptt-font-tool-vX.Y.Z-macos-arm64.zip.sha256
+```
+
+Windows PowerShell 可以用：
+
+```powershell
+Get-FileHash .\ptt-font-tool-vX.Y.Z-windows-x64.zip -Algorithm SHA256
+```
+
+再與 `.sha256` 檔案內容比對。
 
 ## CLI
 

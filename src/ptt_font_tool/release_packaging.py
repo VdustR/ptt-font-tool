@@ -55,6 +55,8 @@ def build_pyinstaller_command(
         str(work_dir),
         "--collect-data",
         "ptt_font_tool",
+        "--copy-metadata",
+        "ptt-font-tool",
         str(entry_script),
     ]
 

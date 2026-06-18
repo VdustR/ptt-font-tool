@@ -6,6 +6,7 @@ from pathlib import Path, PureWindowsPath
 from unittest.mock import patch
 
 from ptt_font_tool.release_packaging import (
+    build_pyinstaller_command,
     clean_desktop_build_directories,
     desktop_bundle_path,
     desktop_release_artifact_name,
@@ -49,6 +50,16 @@ class ReleasePackagingTest(unittest.TestCase):
             desktop_bundle_path(dist_dir, target_platform="linux"),
             dist_dir / "PTT Font Tool",
         )
+
+    def test_pyinstaller_command_copies_package_metadata(self):
+        command = build_pyinstaller_command(
+            entry_script=Path("/tmp/entry.py"),
+            dist_dir=Path("/tmp/dist"),
+            work_dir=Path("/tmp/work"),
+        )
+
+        metadata_index = command.index("--copy-metadata")
+        self.assertEqual(command[metadata_index + 1], "ptt-font-tool")
 
     def test_packages_bundle_and_writes_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
