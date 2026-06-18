@@ -62,6 +62,21 @@ class ReleasePackagingTest(unittest.TestCase):
         metadata_index = command.index("--copy-metadata")
         self.assertEqual(command[metadata_index + 1], "ptt-font-tool")
 
+    def test_pyinstaller_command_collects_certifi_ca_bundle(self):
+        command = build_pyinstaller_command(
+            entry_script=Path("/tmp/entry.py"),
+            dist_dir=Path("/tmp/dist"),
+            work_dir=Path("/tmp/work"),
+            target_platform="linux",
+        )
+
+        collect_data_entries = [
+            command[index + 1]
+            for index, value in enumerate(command)
+            if value == "--collect-data"
+        ]
+        self.assertIn("certifi", collect_data_entries)
+
     def test_pyinstaller_command_uses_platform_bundle_icons(self):
         macos_command = build_pyinstaller_command(
             entry_script=Path("/tmp/entry.py"),
