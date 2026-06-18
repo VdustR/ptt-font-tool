@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.0...ptt-font-tool-v0.4.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* **desktop:** bundle app icons and clarify radio states ([545d854](https://github.com/VdustR/ptt-font-tool/commit/545d854cfbeae12f2c5392dc29d07ed2c95181a6))
+
 ## [0.4.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.3.0...ptt-font-tool-v0.4.0) (2026-06-18)
 
 
