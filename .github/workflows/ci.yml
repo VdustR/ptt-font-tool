@@ -24,3 +24,48 @@ jobs:
 
       - name: Run tests
         run: python -m unittest discover -s tests
+
+  desktop-package:
+    if: ${{ github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target_platform: macos
+            arch: arm64
+          - os: macos-15-intel
+            target_platform: macos
+            arch: x64
+          - os: windows-latest
+            target_platform: windows
+            arch: x64
+          - os: ubuntu-latest
+            target_platform: linux
+            arch: x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux Qt runtime dependencies
+        if: ${{ matrix.target_platform == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+
+      - name: Install desktop build dependencies
+        run: python -m pip install -e ".[desktop,desktop-build]"
+
+      - name: Build desktop release asset
+        run: >
+          python scripts/build_desktop_release.py
+          --release "0.0.0-ci"
+          --target-platform "${{ matrix.target_platform }}"
+          --arch "${{ matrix.arch }}"

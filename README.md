@@ -28,6 +28,15 @@ ptt-font-desktop
 
 prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
 
+Release 會由 GitHub Actions 自動產生桌面版 artifacts：
+
+- `macos-arm64`
+- `macos-x64`
+- `windows-x64`
+- `linux-x64`
+
+每個 artifact 會一起上傳對應的 `.sha256` checksum 檔。
+
 ## CLI
 
 CLI 用於可重複執行的本機流程與自動化。
@@ -107,7 +116,6 @@ python -m unittest discover -s tests
 
 未來 release artifacts 預計包含：
 
-- CLI package artifacts。
 - 已包含 runtime dependencies 的桌面版 app bundles。
 - 可下載 artifacts 的 checksums。
 
