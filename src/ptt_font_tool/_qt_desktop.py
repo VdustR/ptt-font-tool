@@ -648,7 +648,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._remove_preview_font()
-        self._executor.shutdown(wait=False, cancel_futures=True)
+        self._executor.shutdown(wait=True, cancel_futures=True)
         self._temp_dir.cleanup()
         super().closeEvent(event)
 
