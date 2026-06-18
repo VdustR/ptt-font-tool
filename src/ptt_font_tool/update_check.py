@@ -4,8 +4,11 @@ from dataclasses import dataclass
 import importlib.metadata
 import json
 import re
+import ssl
 from typing import Any, Callable, Optional
 from urllib.request import Request, urlopen
+
+import certifi
 
 
 LATEST_RELEASE_API_URL = "https://api.github.com/repos/VdustR/ptt-font-tool/releases/latest"
@@ -38,10 +41,15 @@ def current_package_version() -> str:
         raise UpdateCheckError("Could not determine the installed PTT Font Tool version.") from error
 
 
+def _certifi_ssl_context() -> ssl.SSLContext:
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def check_for_update(
     *,
     current_version: Optional[str] = None,
     opener: Callable[..., Any] = urlopen,
+    ssl_context_factory: Callable[[], ssl.SSLContext] = _certifi_ssl_context,
     timeout: int = 8,
     api_url: str = LATEST_RELEASE_API_URL,
 ) -> UpdateCheckResult:
@@ -55,8 +63,13 @@ def check_for_update(
     )
 
     try:
-        with opener(request, timeout=timeout) as response:
+        with opener(request, timeout=timeout, context=ssl_context_factory()) as response:
             payload = json.loads(response.read().decode("utf-8"))
+    except ssl.SSLCertVerificationError as error:
+        raise UpdateCheckError(
+            "Could not verify GitHub's TLS certificate while checking for updates. "
+            "Please download updates from GitHub Releases and report this issue if it persists."
+        ) from error
     except Exception as error:
         raise UpdateCheckError(f"Could not check for updates: {error}") from error
 

@@ -1,8 +1,10 @@
 import io
 import json
+import ssl
 import unittest
 
 from ptt_font_tool.update_check import (
+    UpdateCheckError,
     check_for_update,
     is_newer_release,
     parse_latest_release,
@@ -30,8 +32,9 @@ class UpdateCheckTest(unittest.TestCase):
         )
 
     def test_check_for_update_reports_available_release(self):
-        def opener(request, timeout):
+        def opener(request, timeout, context):
             self.assertEqual(timeout, 8)
+            self.assertIs(context, tls_context)
             self.assertEqual(request.headers["Accept"], "application/vnd.github+json")
             payload = {
                 "tag_name": "ptt-font-tool-v0.4.0",
@@ -42,14 +45,20 @@ class UpdateCheckTest(unittest.TestCase):
             }
             return _Response(json.dumps(payload).encode("utf-8"))
 
-        result = check_for_update(current_version="0.3.0", opener=opener)
+        tls_context = object()
+        result = check_for_update(
+            current_version="0.3.0",
+            opener=opener,
+            ssl_context_factory=lambda: tls_context,
+        )
 
         self.assertTrue(result.update_available)
         self.assertEqual(result.current_version, "0.3.0")
         self.assertEqual(result.latest.version, "0.4.0")
 
     def test_check_for_update_reports_current_version(self):
-        def opener(_request, timeout):
+        def opener(_request, timeout, context):
+            self.assertIsNotNone(context)
             payload = {
                 "tag_name": "ptt-font-tool-v0.3.0",
                 "name": "ptt-font-tool: v0.3.0",
@@ -63,6 +72,19 @@ class UpdateCheckTest(unittest.TestCase):
 
         self.assertFalse(result.update_available)
         self.assertEqual(result.latest.version, "0.3.0")
+
+    def test_check_for_update_explains_certificate_failures(self):
+        def opener(_request, timeout, context):
+            raise ssl.SSLCertVerificationError("unable to get local issuer certificate")
+
+        with self.assertRaises(UpdateCheckError) as error:
+            check_for_update(
+                current_version="0.3.0",
+                opener=opener,
+                ssl_context_factory=lambda: object(),
+            )
+
+        self.assertIn("Could not verify GitHub's TLS certificate", str(error.exception))
 
 
 class _Response:
