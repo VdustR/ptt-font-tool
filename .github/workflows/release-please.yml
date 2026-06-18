@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to build desktop assets for."
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,6 +17,7 @@ permissions:
 
 jobs:
   release-please:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -26,7 +33,7 @@ jobs:
 
   build-desktop:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
     permissions:
       contents: write
     strategy:
@@ -71,7 +78,7 @@ jobs:
       - name: Build desktop release asset
         run: >
           python scripts/build_desktop_release.py
-          --release "${{ needs.release-please.outputs.tag_name }}"
+          --release "${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || needs.release-please.outputs.tag_name }}"
           --target-platform "${{ matrix.target_platform }}"
           --arch "${{ matrix.arch }}"
 
@@ -79,4 +86,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" build/release-assets/* --clobber
+        run: gh release upload "${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || needs.release-please.outputs.tag_name }}" build/release-assets/* --clobber
