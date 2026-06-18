@@ -13,6 +13,7 @@ from typing import Optional, Sequence
 
 APP_DISPLAY_NAME = "PTT Font Tool"
 SUPPORTED_PLATFORMS = {"linux", "macos", "windows"}
+APP_ICON_DIR = Path(__file__).with_name("assets") / "app_icon"
 
 
 def desktop_release_artifact_name(
@@ -37,8 +38,10 @@ def build_pyinstaller_command(
     entry_script: Path,
     dist_dir: Path,
     work_dir: Path,
+    target_platform: str,
 ) -> list[str]:
-    return [
+    _validate_target_platform(target_platform)
+    command = [
         sys.executable,
         "-m",
         "PyInstaller",
@@ -57,8 +60,12 @@ def build_pyinstaller_command(
         "ptt_font_tool",
         "--copy-metadata",
         "ptt-font-tool",
-        str(entry_script),
     ]
+    icon_path = _bundle_icon_path(target_platform)
+    if icon_path is not None:
+        command.extend(["--icon", str(icon_path)])
+    command.append(str(entry_script))
+    return command
 
 
 def build_desktop_bundle(
@@ -66,11 +73,13 @@ def build_desktop_bundle(
     entry_script: Path,
     dist_dir: Path,
     work_dir: Path,
+    target_platform: str,
 ) -> None:
     command = build_pyinstaller_command(
         entry_script=entry_script,
         dist_dir=dist_dir,
         work_dir=work_dir,
+        target_platform=target_platform,
     )
     subprocess.run(command, check=True)
 
@@ -133,6 +142,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         entry_script=entry_script,
         dist_dir=dist_dir,
         work_dir=work_dir,
+        target_platform=args.target_platform,
     )
     artifact_path, checksum_path = package_desktop_bundle(
         dist_dir=dist_dir,
@@ -209,6 +219,14 @@ def _validate_target_platform(target_platform: str) -> None:
     if target_platform not in SUPPORTED_PLATFORMS:
         choices = ", ".join(sorted(SUPPORTED_PLATFORMS))
         raise ValueError(f"Unsupported target platform: {target_platform}. Expected: {choices}")
+
+
+def _bundle_icon_path(target_platform: str) -> Optional[Path]:
+    if target_platform == "macos":
+        return APP_ICON_DIR / "ptt-font-tool.icns"
+    if target_platform == "windows":
+        return APP_ICON_DIR / "ptt-font-tool.ico"
+    return None
 
 
 def clean_desktop_build_directories(*, dist_dir: Path, work_dir: Path) -> None:
