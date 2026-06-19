@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.4](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.3...ptt-font-tool-v0.4.4) (2026-06-19)
+
+
+### Bug Fixes
+
+* **desktop:** theme message dialogs ([7fcf1e6](https://github.com/VdustR/ptt-font-tool/commit/7fcf1e6ff512c46ef762f2802c05ff9f5f1d7e44))
+* **desktop:** theme message dialogs ([9984cff](https://github.com/VdustR/ptt-font-tool/commit/9984cffbaee3dc1a7a1f45a7c35f988d9793e218))
+
+
+### Documentation
+
+* add theme extension preview ([f076025](https://github.com/VdustR/ptt-font-tool/commit/f076025140f22febdd922adde11ba318a9e1134d))
+
 ## [0.4.3](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.2...ptt-font-tool-v0.4.3) (2026-06-18)
 
 
