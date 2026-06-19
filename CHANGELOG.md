@@ -5,7 +5,6 @@
 
 ### Bug Fixes
 
-* **desktop:** theme message dialogs ([7fcf1e6](https://github.com/VdustR/ptt-font-tool/commit/7fcf1e6ff512c46ef762f2802c05ff9f5f1d7e44))
 * **desktop:** theme message dialogs ([9984cff](https://github.com/VdustR/ptt-font-tool/commit/9984cffbaee3dc1a7a1f45a7c35f988d9793e218))
 
 
