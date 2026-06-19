@@ -404,7 +404,7 @@ class MainWindow(QMainWindow):
         self._load_future = None
         self._set_busy("load", None)
         self._set_empty_state()
-        QMessageBox.critical(self, "Could not open font", error)
+        self._show_message(QMessageBox.Icon.Critical, "Could not open font", error)
 
     def _set_font_controls_enabled(self, enabled: bool) -> None:
         busy = bool(self._busy_messages)
@@ -465,22 +465,23 @@ class MainWindow(QMainWindow):
         self._set_busy("update", None)
         self._set_font_controls_enabled(self._state is not None)
         if not result.update_available:
-            QMessageBox.information(
-                self,
+            self._show_message(
+                QMessageBox.Icon.Information,
                 "No update available",
                 f"PTT Font Tool {result.current_version} is the latest release.",
             )
             return
 
-        message = QMessageBox(self)
-        message.setWindowTitle("Update available")
-        message.setText(
+        message = self._message_box(
+            QMessageBox.Icon.Information,
+            "Update available",
             f"PTT Font Tool {result.latest.version} is available.\n"
-            f"You are using {result.current_version}."
+            f"You are using {result.current_version}.",
+            informative_text="Open the GitHub release page to download it.",
         )
-        message.setInformativeText("Open the GitHub release page to download it.")
         open_button = message.addButton("Open release", QMessageBox.ButtonRole.AcceptRole)
-        message.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
+        not_now_button = message.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
+        not_now_button.setObjectName("SecondaryButton")
         message.exec()
         if message.clickedButton() == open_button:
             QDesktopServices.openUrl(QUrl(result.latest.url))
@@ -490,7 +491,30 @@ class MainWindow(QMainWindow):
         self._set_busy("update", None)
         self._set_font_controls_enabled(self._state is not None)
         message = error if error else str(UpdateCheckError("Could not check for updates."))
-        QMessageBox.warning(self, "Could not check for updates", message)
+        self._show_message(QMessageBox.Icon.Warning, "Could not check for updates", message)
+
+    def _show_message(self, icon: QMessageBox.Icon, title: str, text: str) -> None:
+        message = self._message_box(icon, title, text)
+        message.setStandardButtons(QMessageBox.StandardButton.Ok)
+        message.exec()
+
+    def _message_box(
+        self,
+        icon: QMessageBox.Icon,
+        title: str,
+        text: str,
+        *,
+        informative_text: Optional[str] = None,
+    ) -> QMessageBox:
+        message = QMessageBox(self)
+        message.setOption(QMessageBox.Option.DontUseNativeDialog, True)
+        message.setStyleSheet(self.styleSheet())
+        message.setIcon(icon)
+        message.setWindowTitle(title)
+        message.setText(text)
+        if informative_text is not None:
+            message.setInformativeText(informative_text)
+        return message
 
     def _reset_sidebar_scroll(self) -> None:
         def reset() -> None:
@@ -722,12 +746,26 @@ class MainWindow(QMainWindow):
             QWidget {
                 color: #1f2825;
             }
+            QDialog,
+            QMessageBox {
+                background: #f6f4ef;
+                color: #1f2825;
+            }
             QMainWindow {
                 background: #f6f4ef;
                 color: #1f2825;
             }
             QLabel {
                 color: #1f2825;
+                font-size: 13px;
+            }
+            QMessageBox QLabel {
+                background: transparent;
+                color: #1f2825;
+                font-size: 14px;
+            }
+            QMessageBox QLabel#qt_msgbox_informativelabel {
+                color: #47524d;
                 font-size: 13px;
             }
             QLabel#Title {
@@ -820,6 +858,10 @@ class MainWindow(QMainWindow):
                 color: white;
                 font-weight: 700;
                 padding: 7px 12px;
+            }
+            QMessageBox QPushButton {
+                min-width: 92px;
+                padding: 8px 14px;
             }
             QPushButton:disabled {
                 background: #d9d4ca;
