@@ -14,27 +14,29 @@
 
 ## Desktop
 
-桌面版會是主要的使用者介面。
+桌面版是主要的使用者介面。
 
-目標：
+主要功能：
 
 - 開啟本機字型檔。
-- 預覽字型是否符合 term.ptt.cc 的終端機格線寬度。
-- 將字型處理成適合 PTT 使用的本機輸出檔。
-- 匯出處理後的字型，不要求使用者自行安裝 Python、fontTools、Brotli 或其他 runtime dependencies。
+- 用載入的字型即時編輯預覽文字。
+- 顯示字型 metadata、audit summary 與 fallback glyph coverage。
+- 管理 fallback font stack 與 Noto fallback cache。
+- 切換 `center` / `fit` 處理策略。
+- 建立並匯出適合 PTT 使用的本機輸出檔。
 
-桌面版會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行。
+桌面版 release artifacts 會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行，不需自行安裝 Python、fontTools、Brotli 等環境。
 
 下載桌面版請前往 [GitHub Releases](https://github.com/VdustR/ptt-font-tool/releases/latest)，選擇最新版中的 macOS、Windows 或 Linux artifact。
 
-目前本地 prototype 可以用 desktop extra 啟動：
+本地開發版可以用 desktop extra 啟動：
 
 ```bash
 python -m pip install -e '.[desktop]'
 ptt-font-desktop
 ```
 
-prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生可預覽與匯出的完整處理字型，以及匯出並驗證處理後的字型。
+桌面版 Build 後會產生可預覽與匯出的完整處理字型；匯出時會再次驗證處理結果。
 
 Noto fallback 會由桌面版下載到應用程式自己的 cache，不會安裝到系統字型。使用者可以在 fallback 區塊下載、重新下載、清空，或打開 cache 資料夾，並選擇 `Noto Sans TC` 或 `Noto Serif TC` 作為文字 fallback。
 
@@ -148,10 +150,7 @@ ptt-font noto path
 - `PTT_FONT_TOOL_NOTO_STYLE`：`sans`、`serif` 或 `off`。
 - `PTT_FONT_TOOL_FALLBACK_FONTS`：fallback font path list，使用作業系統 path separator 分隔，例如 macOS/Linux 用 `:`、Windows 用 `;`。
 
-處理策略：
-
-- `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell，允許視覺上溢出或重疊。
-- `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。
+CLI 的 `--strategy` 使用桌面版與 library 共用的處理策略，見 [Processing Strategy 處理策略](#processing-strategy-處理策略)。
 
 處理後的字型會移除 OpenType `GPOS` pair positioning/kerning，避免瀏覽器 shaping 時微調字距而破壞終端機固定格線。
 
@@ -179,6 +178,15 @@ term.ptt.cc 使用終端機常見的 2:1 cell 寬度：
 
 預設 profile 使用 Python 的 Unicode East Asian Width 資料，並且針對 term.ptt.cc 將 ambiguous-width 字元視為寬字元。
 
+## Processing Strategy 處理策略
+
+桌面版、CLI 與 Python library 使用同一套 glyph outline 處理策略。兩種策略都會先把 glyph advance width 調整成 PTT cell 寬度；差異在於 glyph 外形如何放進 cell。
+
+- `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell。這最保留原字型風格，適合特色字型；但過寬 glyph 可能視覺溢出或和鄰字重疊。
+- `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。這比較不容易破壞終端機格線；但部分字形比例會被壓縮。
+
+若目標是保留字型味道，建議先試 `center`；如果終端機畫面仍有明顯 overlap，再改用 `fit`。
+
 ## Current Limits 目前限制
 
 - Audit 與 advance patching 依照 fontTools 支援的 OpenType 與 TrueType 輸入格式。
@@ -201,14 +209,14 @@ python -m pip install -e .
 python -m unittest discover -s tests
 ```
 
-## Release Plan 發布規劃
+## Release 發布
 
-這個 repository 預計使用 Release Please 管理版本與自動化 release。
+這個 repository 使用 Release Please 管理版本與自動化 release。
 
-未來 release artifacts 預計包含：
+Release 建立後，GitHub Actions 會自動建置並上傳：
 
-- 已包含 runtime dependencies 的桌面版 app bundles。
-- 可下載 artifacts 的 checksums。
+- 已包含 runtime dependencies 的桌面版 artifacts。
+- 每個 artifact 對應的 `.sha256` checksum 檔。
 
 ## License And Font Rights 授權與字型權利
 
