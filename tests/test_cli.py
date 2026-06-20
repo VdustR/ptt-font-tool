@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional
+from unittest.mock import patch
 
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
@@ -49,6 +50,31 @@ def _build_cli_fixture(
         "uniqueFontIdentifier": "CLI Fixture Regular",
         "fullName": "CLI Fixture Regular",
         "psName": "CLIFixture-Regular",
+    })
+    builder.setupPost()
+    builder.save(path)
+
+
+def _build_cli_symbol_fallback(path: Path) -> None:
+    glyph_order = [".notdef", "leftArrow"]
+    glyphs = {glyph_name: _empty_glyph() for glyph_name in glyph_order}
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(glyph_order)
+    builder.setupCharacterMap({ord("←"): "leftArrow"})
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({
+        ".notdef": (500, 0),
+        "leftArrow": (1000, 0),
+    })
+    builder.setupHorizontalHeader(ascent=900, descent=-300)
+    builder.setupOS2()
+    builder.setupNameTable({
+        "familyName": path.stem,
+        "styleName": "Regular",
+        "uniqueFontIdentifier": f"{path.stem} Regular",
+        "fullName": f"{path.stem} Regular",
+        "psName": f"{path.stem}-Regular",
     })
     builder.setupPost()
     builder.save(path)
@@ -195,6 +221,103 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertTrue(output_path.exists())
+
+    def test_build_accepts_primary_and_fallback_stack(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "fixture.ttf"
+            fallback_path = root / "symbols.ttf"
+            output_path = root / "built.ttf"
+            _build_cli_fixture(input_path)
+            _build_cli_symbol_fallback(fallback_path)
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                exit_code = main([
+                    "build",
+                    str(input_path),
+                    str(fallback_path),
+                    "--output",
+                    str(output_path),
+                    "--required-fallback-chars",
+                    "←",
+                    "--sample-text",
+                    "A漢←",
+                    "--noto",
+                    "off",
+                ])
+
+            audit = audit_font(output_path, sample_text="A漢←")
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(audit.ok)
+        self.assertIn(str(output_path), stdout.getvalue())
+
+    def test_build_uses_env_fallback_when_no_explicit_fallback_is_given(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "fixture.ttf"
+            fallback_path = root / "symbols.ttf"
+            output_path = root / "built.ttf"
+            _build_cli_fixture(input_path)
+            _build_cli_symbol_fallback(fallback_path)
+
+            with patch.dict("os.environ", {"PTT_FONT_TOOL_FALLBACK_FONTS": str(fallback_path)}, clear=True):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    exit_code = main([
+                        "build",
+                        str(input_path),
+                        "--output",
+                        str(output_path),
+                        "--required-fallback-chars",
+                        "←",
+                        "--sample-text",
+                        "A漢←",
+                        "--noto",
+                        "off",
+                    ])
+
+            audit = audit_font(output_path, sample_text="A漢←")
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(audit.ok)
+
+    def test_noto_path_uses_fonts_dir_argument(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fonts_dir = Path(directory) / "fonts"
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main([
+                    "noto",
+                    "path",
+                    "--fonts-dir",
+                    str(fonts_dir),
+                    "--noto",
+                    "serif",
+                ])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue().strip(), str(fonts_dir / "noto"))
+
+    def test_noto_status_reports_missing_assets_without_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fonts_dir = Path(directory) / "fonts"
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main([
+                    "noto",
+                    "status",
+                    "--fonts-dir",
+                    str(fonts_dir),
+                    "--noto",
+                    "sans",
+                ])
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn(f"Noto cache: {fonts_dir / 'noto'}", output)
+        self.assertIn("Missing: Noto Sans Symbols 2, Noto Sans TC, SIL Open Font License 1.1", output)
 
 
 if __name__ == "__main__":
