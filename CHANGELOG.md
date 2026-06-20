@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.4...ptt-font-tool-v0.5.0) (2026-06-20)
+
+
+### Features
+
+* **fonts:** add managed fallback font stacks ([958ace3](https://github.com/VdustR/ptt-font-tool/commit/958ace3617eac4e046fd0630fa5d45c5defba636))
+* **fonts:** add managed fallback font stacks ([9c85357](https://github.com/VdustR/ptt-font-tool/commit/9c85357968f973e8cbac8fb16102b86fdc737025))
+
+
+### Bug Fixes
+
+* **fonts:** wire fallback preview settings ([3ed269b](https://github.com/VdustR/ptt-font-tool/commit/3ed269bd42d2f2f0a1694ccd20a6533c5161a604))
+
 ## [0.4.4](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.3...ptt-font-tool-v0.4.4) (2026-06-19)
 
 
