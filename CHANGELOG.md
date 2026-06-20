@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.5.1...ptt-font-tool-v0.5.2) (2026-06-20)
+
+
+### Documentation
+
+* **readme:** shorten Night Owl caption ([bb39846](https://github.com/VdustR/ptt-font-tool/commit/bb398466784dee06bfbfb86fc04b4fc4934ddc93))
+
 ## [0.5.1](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.5.0...ptt-font-tool-v0.5.1) (2026-06-20)
 
 
