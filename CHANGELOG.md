@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.5.0...ptt-font-tool-v0.5.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* **desktop:** build full preview artifacts ([e9c6aa0](https://github.com/VdustR/ptt-font-tool/commit/e9c6aa0c45d0ffd7eb2f5a801d2f4116a9fba142))
+
 ## [0.5.0](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.4.4...ptt-font-tool-v0.5.0) (2026-06-20)
 
 
