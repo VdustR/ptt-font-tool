@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.5.2...ptt-font-tool-v0.5.3) (2026-06-20)
+
+
+### Documentation
+
+* **readme:** update current project status ([1330af8](https://github.com/VdustR/ptt-font-tool/commit/1330af822dd7efbecfd093c5c889b11ff2cd3a75))
+
 ## [0.5.2](https://github.com/VdustR/ptt-font-tool/compare/ptt-font-tool-v0.5.1...ptt-font-tool-v0.5.2) (2026-06-20)
 
 
