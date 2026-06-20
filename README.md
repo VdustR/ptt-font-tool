@@ -36,7 +36,7 @@ python -m pip install -e '.[desktop]'
 ptt-font-desktop
 ```
 
-桌面版目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生可預覽與匯出的完整處理字型，以及匯出並驗證處理後的字型。
+桌面版 Build 後會產生可預覽與匯出的完整處理字型；匯出時會再次驗證處理結果。
 
 Noto fallback 會由桌面版下載到應用程式自己的 cache，不會安裝到系統字型。使用者可以在 fallback 區塊下載、重新下載、清空，或打開 cache 資料夾，並選擇 `Noto Sans TC` 或 `Noto Serif TC` 作為文字 fallback。
 
@@ -150,10 +150,7 @@ ptt-font noto path
 - `PTT_FONT_TOOL_NOTO_STYLE`：`sans`、`serif` 或 `off`。
 - `PTT_FONT_TOOL_FALLBACK_FONTS`：fallback font path list，使用作業系統 path separator 分隔，例如 macOS/Linux 用 `:`、Windows 用 `;`。
 
-處理策略：
-
-- `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell，允許視覺上溢出或重疊。
-- `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。
+CLI 的 `--strategy` 使用桌面版與 library 共用的處理策略，見 [Processing Strategy 處理策略](#processing-strategy-處理策略)。
 
 處理後的字型會移除 OpenType `GPOS` pair positioning/kerning，避免瀏覽器 shaping 時微調字距而破壞終端機固定格線。
 
@@ -180,6 +177,15 @@ term.ptt.cc 使用終端機常見的 2:1 cell 寬度：
 - 1200 UPEM 字型中，一個 cell 預期是 600 font units，兩個 cell 預期是 1200 font units。
 
 預設 profile 使用 Python 的 Unicode East Asian Width 資料，並且針對 term.ptt.cc 將 ambiguous-width 字元視為寬字元。
+
+## Processing Strategy 處理策略
+
+桌面版、CLI 與 Python library 使用同一套 glyph outline 處理策略。兩種策略都會先把 glyph advance width 調整成 PTT cell 寬度；差異在於 glyph 外形如何放進 cell。
+
+- `center`：保留 glyph 外形與尺寸，將 glyph 置中放進 PTT cell。這最保留原字型風格，適合特色字型；但過寬 glyph 可能視覺溢出或和鄰字重疊。
+- `fit`：只對超出 PTT cell 的 glyph 做水平縮放，再置中。這比較不容易破壞終端機格線；但部分字形比例會被壓縮。
+
+若目標是保留字型味道，建議先試 `center`；如果終端機畫面仍有明顯 overlap，再改用 `fit`。
 
 ## Current Limits 目前限制
 
