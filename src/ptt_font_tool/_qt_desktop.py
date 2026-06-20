@@ -50,7 +50,7 @@ from .desktop_model import (
     build_fallback_status,
 )
 from .fallback import PTT_REQUIRED_SYMBOLS
-from .font_stack import build_font_stack
+from .font_stack import build_font_stack, resolve_noto_cache_dir, resolve_noto_mode
 from .noto_cache import (
     NotoCacheState,
     NotoTextStyle,
@@ -338,8 +338,11 @@ class MainWindow(QMainWindow):
         self._build_dirty = True
         self._custom_fallback_paths: list[Path] = []
         self._font_stack_paths: list[Path] = []
-        self._noto_text_style: NotoTextStyle = "sans"
-        self._noto_cache_state = noto_cache_state(self._noto_text_style)
+        self._noto_text_style: NotoTextStyle = resolve_noto_mode() or "sans"
+        self._noto_cache_state = noto_cache_state(
+            self._noto_text_style,
+            cache_dir=resolve_noto_cache_dir(),
+        )
         self._noto_fallback_paths = self._noto_cache_state.fallback_paths
         self._preview_sample_text = DEFAULT_PREVIEW_TEXT
         self._syncing_preview_text = False
@@ -478,7 +481,10 @@ class MainWindow(QMainWindow):
         )
         self.noto_sans_radio = QRadioButton("Sans TC")
         self.noto_serif_radio = QRadioButton("Serif TC")
-        self.noto_sans_radio.setChecked(True)
+        if self._noto_text_style == "serif":
+            self.noto_serif_radio.setChecked(True)
+        else:
+            self.noto_sans_radio.setChecked(True)
         self.noto_sans_radio.toggled.connect(self._noto_style_changed)
         self.noto_serif_radio.toggled.connect(self._noto_style_changed)
         noto_style_choices = QHBoxLayout()
@@ -892,6 +898,7 @@ class MainWindow(QMainWindow):
         self._noto_future = self._executor.submit(
             download_noto_assets,
             self._noto_text_style,
+            cache_dir=self._noto_cache_state.cache_dir,
             force=force,
         )
         self._noto_future.add_done_callback(self._noto_download_finished)
@@ -1359,6 +1366,7 @@ class MainWindow(QMainWindow):
             output_path=output_path,
             family_name=self.family_input.text(),
             strategy=self._selected_strategy(),
+            sample_text=self._preview_sample_text,
             required_fallback_chars=self._required_fallback_chars(),
             noto=self._noto_text_style,
         )

@@ -1,10 +1,13 @@
 import io
+import ssl
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.error import URLError
 
 from ptt_font_tool.noto_cache import (
     LICENSE_ASSET,
+    NotoCacheError,
     SANS_TC_ASSET,
     SERIF_TC_ASSET,
     SYMBOLS_ASSET,
@@ -110,6 +113,19 @@ class NotoCacheTest(unittest.TestCase):
                 self.assertFalse((cache_dir / asset.filename).exists())
                 self.assertFalse((cache_dir / f"{asset.filename}.download").exists())
             self.assertTrue(unrelated.exists())
+
+    def test_download_reports_wrapped_ssl_certificate_errors(self):
+        def opener(_request, timeout, context):
+            raise URLError(ssl.SSLCertVerificationError("certificate verify failed"))
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(NotoCacheError, "TLS certificate"):
+                download_noto_assets(
+                    "sans",
+                    cache_dir=Path(directory),
+                    opener=opener,
+                    ssl_context_factory=lambda: object(),
+                )
 
 
 class _Response:

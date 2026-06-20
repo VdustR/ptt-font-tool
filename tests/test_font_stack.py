@@ -2,7 +2,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from ptt_font_tool.desktop_model import AuditSummary, FallbackStatus, PatchedFontState
 from ptt_font_tool.font_stack import (
     ENV_FALLBACK_FONTS,
     ENV_FONTS_DIR,
@@ -89,6 +91,35 @@ class FontStackTest(unittest.TestCase):
     def test_build_font_stack_requires_a_primary_font(self):
         with self.assertRaisesRegex(ValueError, "at least one font path is required"):
             build_font_stack([], noto="off")
+
+    def test_build_font_stack_forwards_sample_text_to_patch(self):
+        fallback = FallbackStatus(
+            missing=[],
+            custom_resolved=[],
+            noto_resolved=[],
+            unresolved=[],
+            layers=[],
+        )
+        patched = PatchedFontState(
+            output_path=Path("output.ttf"),
+            audit=AuditSummary(total=1, ok=1, missing=0, mismatch=0),
+            fallback_added=[],
+            fallback_unresolved=[],
+        )
+
+        with (
+            patch("ptt_font_tool.font_stack.build_fallback_status", return_value=fallback),
+            patch("ptt_font_tool.font_stack.export_patched_font", return_value=patched) as export,
+        ):
+            build_font_stack(
+                [Path("primary.ttf")],
+                output_path=Path("output.ttf"),
+                family_name="Primary PTT",
+                sample_text="A漢",
+                noto="off",
+            )
+
+        self.assertEqual(export.call_args.kwargs["sample_text"], "A漢")
 
 
 if __name__ == "__main__":

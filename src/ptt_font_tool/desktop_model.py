@@ -147,6 +147,7 @@ def export_patched_font(
     *,
     family_name: str,
     strategy: str,
+    sample_text: Optional[str] = None,
     fallback_paths: Sequence[Union[str, Path]] = (),
     required_fallback_chars: Union[str, Sequence[str]] = PTT_REQUIRED_SYMBOLS,
 ) -> PatchedFontState:
@@ -155,7 +156,7 @@ def export_patched_font(
         output_path,
         family_name=family_name,
         strategy=strategy,
-        sample_text=None,
+        sample_text=sample_text,
         fallback_paths=fallback_paths,
         required_fallback_chars=required_fallback_chars,
     )

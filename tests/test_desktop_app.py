@@ -1,4 +1,5 @@
 import os
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -348,6 +349,36 @@ class DesktopAppTest(unittest.TestCase):
             window.close()
             app.quit()
 
+    def test_qt_main_window_uses_noto_environment_defaults(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            from ptt_font_tool._qt_desktop import MainWindow
+        except ImportError as error:
+            self.skipTest(f"PySide6 is unavailable: {error}")
+
+        app = QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as directory:
+            fonts_dir = Path(directory)
+            with patch.dict(
+                os.environ,
+                {
+                    "PTT_FONT_TOOL_FONTS_DIR": str(fonts_dir),
+                    "PTT_FONT_TOOL_NOTO_STYLE": "serif",
+                },
+            ):
+                window = MainWindow()
+
+        try:
+            self.assertEqual(window._noto_text_style, "serif")
+            self.assertEqual(window._noto_cache_state.cache_dir, fonts_dir / "noto")
+            self.assertTrue(window.noto_serif_radio.isChecked())
+            self.assertFalse(window.noto_sans_radio.isChecked())
+        finally:
+            window.close()
+            app.quit()
+
     def test_qt_font_stack_height_grows_with_rows_and_autoscrolls_sidebar(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         try:
@@ -646,6 +677,73 @@ class DesktopAppTest(unittest.TestCase):
             self.assertTrue(window._export_after_preview)
             self.assertIn("Building patched preview before export", window.preview_status.text())
         finally:
+            window.close()
+            app.quit()
+
+    def test_qt_preview_build_passes_current_sample_text(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            from ptt_font_tool._qt_desktop import MainWindow
+            from ptt_font_tool.font_stack import build_font_stack
+        except ImportError as error:
+            self.skipTest(f"PySide6 is unavailable: {error}")
+
+        app = QApplication.instance() or QApplication([])
+        window = MainWindow()
+        summary = AuditSummary(total=1, ok=1, missing=0, mismatch=0)
+        fallback = FallbackStatus(
+            missing=[],
+            custom_resolved=[],
+            noto_resolved=[],
+            unresolved=[],
+            layers=[],
+        )
+        source_path = Path("/tmp/source.ttf")
+        window._state = DesktopFontState(
+            metadata=FontMetadata(
+                path=source_path,
+                family_name="Source",
+                style_name="Regular",
+                format="TrueType",
+                units_per_em=1000,
+                glyph_count=1,
+            ),
+            audit=summary,
+            fallback=fallback,
+            output_path=Path("/tmp/source-ptt.ttf"),
+            family_name="Source PTT",
+        )
+        window._font_stack_paths = [source_path]
+        window._preview_sample_text = "A漢"
+        captured = {}
+
+        class PendingFuture:
+            def done(self):
+                return False
+
+            def add_done_callback(self, callback):
+                self.callback = callback
+
+        class FakeExecutor:
+            def submit(self, function, *args, **kwargs):
+                captured["function"] = function
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                return PendingFuture()
+
+        original_executor = window._executor
+        window._executor = FakeExecutor()
+        try:
+            window.family_input.setText("Source PTT")
+            window._refresh_patch_preview()
+
+            self.assertIs(captured["function"], build_font_stack)
+            self.assertEqual(captured["kwargs"]["sample_text"], "A漢")
+        finally:
+            window._set_busy("preview", None)
+            window._executor = original_executor
             window.close()
             app.quit()
 

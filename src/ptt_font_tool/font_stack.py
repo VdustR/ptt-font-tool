@@ -195,6 +195,7 @@ def build_font_stack(
         output,
         family_name=active_family_name,
         strategy=strategy,
+        sample_text=sample_text,
         fallback_paths=resolved.fallback_paths,
         required_fallback_chars=required_fallback_chars,
     )

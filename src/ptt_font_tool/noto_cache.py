@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import ssl
 from typing import Any, Callable, Literal, Sequence
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 
@@ -209,14 +210,33 @@ def _download_asset(
                         break
                     output.write(chunk)
         temporary_path.replace(destination)
-    except ssl.SSLCertVerificationError as error:
-        temporary_path.unlink(missing_ok=True)
-        raise NotoCacheError(
-            "Could not verify the TLS certificate while downloading Noto fonts."
-        ) from error
     except Exception as error:
         temporary_path.unlink(missing_ok=True)
+        if _contains_ssl_certificate_error(error):
+            raise NotoCacheError(
+                "Could not verify the TLS certificate while downloading Noto fonts."
+            ) from error
         raise NotoCacheError(f"Could not download {asset.label}: {error}") from error
+
+
+def _contains_ssl_certificate_error(error: BaseException) -> bool:
+    seen: set[int] = set()
+    pending: list[BaseException] = [error]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLCertVerificationError):
+            return True
+        if isinstance(current, URLError) and isinstance(current.reason, BaseException):
+            pending.append(current.reason)
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+
+    return False
 
 
 def _text_asset(text_style: NotoTextStyle) -> NotoAsset:
