@@ -5,7 +5,6 @@
 
 ### Features
 
-* **fonts:** add managed fallback font stacks ([958ace3](https://github.com/VdustR/ptt-font-tool/commit/958ace3617eac4e046fd0630fa5d45c5defba636))
 * **fonts:** add managed fallback font stacks ([9c85357](https://github.com/VdustR/ptt-font-tool/commit/9c85357968f973e8cbac8fb16102b86fdc737025))
 
 
