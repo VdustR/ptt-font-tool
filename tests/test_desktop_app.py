@@ -75,7 +75,7 @@ class DesktopAppTest(unittest.TestCase):
 
         self.assertEqual(
             format_patch_preview_status(summary),
-            "Patched preview: 12/12 checks OK",
+            "Built font: 12/12 checks OK",
         )
 
     def test_formats_export_status(self):
@@ -321,7 +321,7 @@ class DesktopAppTest(unittest.TestCase):
             self.assertEqual(window.family_input.parentWidget().objectName(), "OutputNameStack")
             self.assertIs(window.family_input.parentWidget(), window.export_hint_label.parentWidget())
             self.assertIs(window.family_input.parentWidget().parentWidget(), window.build_group)
-            self.assertIn("Export opens a save dialog", window.export_hint_label.text())
+            self.assertIn("Export copies the last built font", window.export_hint_label.text())
             build_labels = [
                 label.text()
                 for label in window.build_group.findChildren(QLabel)
@@ -333,7 +333,7 @@ class DesktopAppTest(unittest.TestCase):
             window._set_busy("update", "Checking updates...")
             self.assertTrue(window.build_progress_bar.isHidden())
             window._set_busy("update", None)
-            window._set_busy("preview", "Building preview...")
+            window._set_busy("preview", "Building font...")
             self.assertFalse(window.build_progress_bar.isHidden())
             window._set_busy("preview", None)
             self.assertTrue(window.build_progress_bar.isHidden())
@@ -563,7 +563,7 @@ class DesktopAppTest(unittest.TestCase):
         try:
             from PySide6.QtWidgets import QApplication
 
-            from ptt_font_tool._qt_desktop import MainWindow
+            from ptt_font_tool._qt_desktop import MainWindow, _copy_built_font
         except ImportError as error:
             self.skipTest(f"PySide6 is unavailable: {error}")
 
@@ -608,9 +608,10 @@ class DesktopAppTest(unittest.TestCase):
                 self.callback = callback
 
         class FakeExecutor:
-            def submit(self, function, *args):
+            def submit(self, function, *args, **kwargs):
                 captured["function"] = function
                 captured["args"] = args
+                captured["kwargs"] = kwargs
                 return PendingFuture()
 
         original_executor = window._executor
@@ -622,6 +623,7 @@ class DesktopAppTest(unittest.TestCase):
             ):
                 window._export_font()
 
+            self.assertIs(captured["function"], _copy_built_font)
             self.assertEqual(captured["args"][1], Path("/tmp/exported-font.ttf"))
             self.assertIn("exported-font.ttf", window.export_status.text())
         finally:
@@ -630,7 +632,7 @@ class DesktopAppTest(unittest.TestCase):
             window.close()
             app.quit()
 
-    def test_qt_export_builds_preview_before_save_dialog_when_dirty(self):
+    def test_qt_export_builds_font_before_save_dialog_when_dirty(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         try:
             from PySide6.QtWidgets import QApplication
@@ -675,12 +677,12 @@ class DesktopAppTest(unittest.TestCase):
 
             refresh_preview.assert_called_once()
             self.assertTrue(window._export_after_preview)
-            self.assertIn("Building patched preview before export", window.preview_status.text())
+            self.assertIn("Building font before export", window.preview_status.text())
         finally:
             window.close()
             app.quit()
 
-    def test_qt_preview_build_passes_current_sample_text(self):
+    def test_qt_build_font_patches_all_glyphs_and_uses_preview_text_for_fallbacks(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         try:
             from PySide6.QtWidgets import QApplication
@@ -740,10 +742,122 @@ class DesktopAppTest(unittest.TestCase):
             window._refresh_patch_preview()
 
             self.assertIs(captured["function"], build_font_stack)
-            self.assertEqual(captured["kwargs"]["sample_text"], "A漢")
+            self.assertIsNone(captured["kwargs"]["sample_text"])
+            self.assertIn("A漢", captured["kwargs"]["required_fallback_chars"])
         finally:
             window._set_busy("preview", None)
             window._executor = original_executor
+            window.close()
+            app.quit()
+
+    def test_qt_preview_text_change_keeps_built_font_visible_but_dirty(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            from ptt_font_tool._qt_desktop import MainWindow
+        except ImportError as error:
+            self.skipTest(f"PySide6 is unavailable: {error}")
+
+        app = QApplication.instance() or QApplication([])
+        window = MainWindow()
+        summary = AuditSummary(total=1, ok=1, missing=0, mismatch=0)
+        fallback = FallbackStatus(
+            missing=[],
+            custom_resolved=[],
+            noto_resolved=[],
+            unresolved=[],
+            layers=[],
+        )
+        output_path = Path("/tmp/source-built.ttf")
+        window._state = DesktopFontState(
+            metadata=FontMetadata(
+                path=Path("/tmp/source.ttf"),
+                family_name="Source",
+                style_name="Regular",
+                format="TrueType",
+                units_per_em=1000,
+                glyph_count=1,
+            ),
+            audit=summary,
+            fallback=fallback,
+            output_path=Path("/tmp/source-ptt.ttf"),
+            family_name="Source PTT",
+        )
+        window._font_stack_paths = [Path("/tmp/source.ttf")]
+        window._patch_preview_path = output_path
+        window._built_result = SimpleNamespace(
+            audit=summary,
+            fallback_added=[],
+            fallback_unresolved=[],
+        )
+        window._build_dirty = False
+
+        try:
+            window.patched_radio.setEnabled(True)
+            window.patched_radio.setChecked(True)
+
+            window._set_preview_sample_text("New preview text ◎", source=None)
+
+            self.assertEqual(window._patch_preview_path, output_path)
+            self.assertIsNotNone(window._built_result)
+            self.assertTrue(window._build_dirty)
+            self.assertTrue(window.patched_radio.isEnabled())
+            self.assertTrue(window.patched_radio.isChecked())
+            self.assertEqual(window.export_button.text(), "Build and export")
+        finally:
+            window.close()
+            app.quit()
+
+    def test_qt_dirty_settings_refresh_original_preview_once(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            from ptt_font_tool._qt_desktop import MainWindow
+        except ImportError as error:
+            self.skipTest(f"PySide6 is unavailable: {error}")
+
+        app = QApplication.instance() or QApplication([])
+        window = MainWindow()
+        summary = AuditSummary(total=1, ok=1, missing=0, mismatch=0)
+        fallback = FallbackStatus(
+            missing=[],
+            custom_resolved=[],
+            noto_resolved=[],
+            unresolved=[],
+            layers=[],
+        )
+        window._state = DesktopFontState(
+            metadata=FontMetadata(
+                path=Path("/tmp/source.ttf"),
+                family_name="Source",
+                style_name="Regular",
+                format="TrueType",
+                units_per_em=1000,
+                glyph_count=1,
+            ),
+            audit=summary,
+            fallback=fallback,
+            output_path=Path("/tmp/source-ptt.ttf"),
+            family_name="Source PTT",
+        )
+        window._font_stack_paths = [Path("/tmp/source.ttf")]
+        window._patch_preview_path = Path("/tmp/source-built.ttf")
+        window._built_result = SimpleNamespace(
+            audit=summary,
+            fallback_added=[],
+            fallback_unresolved=[],
+        )
+
+        try:
+            window.patched_radio.setEnabled(True)
+            window.patched_radio.setChecked(True)
+            with patch.object(window, "_show_original_preview") as show_original_preview:
+                window._mark_build_dirty("Build settings changed")
+
+            show_original_preview.assert_called_once()
+        finally:
             window.close()
             app.quit()
 
@@ -800,7 +914,7 @@ class DesktopAppTest(unittest.TestCase):
             self.assertTrue(window.patched_radio.isChecked())
             self.assertFalse(window.original_radio.isChecked())
             self.assertIn("Ready to export", window.preview_status.text())
-            self.assertIn("Patched preview", window.preview_hint_label.text())
+            self.assertIn("Built font", window.preview_hint_label.text())
         finally:
             window.close()
             app.quit()

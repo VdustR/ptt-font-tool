@@ -7,7 +7,7 @@
 <p align="center">
   <img src="assets/readme/term-ptt-custom-theme.png" width="860" alt="Term PTT Custom Theme color preview">
   <br>
-  <sub>顏色主題可搭配 <a href="https://chromewebstore.google.com/detail/term-ptt-custom-theme/lmanknmemlpnjolgjoffdkmkkeibpfej">Term PTT Custom Theme</a> 套用，原始碼見 <a href="https://github.com/VdustR/term-ptt-custom-theme">GitHub</a>。</sub>
+  <sub>截圖範例使用 <a href="https://www.sentyfont.com/watermelon.htm">新蒂西瓜体</a> 搭配 <a href="https://github.com/mbadolato/iTerm2-Color-Schemes/blob/61c5479/schemes/Night%20Owl.itermcolors">Night Owl.itermcolors</a>。顏色主題可搭配 <a href="https://chromewebstore.google.com/detail/term-ptt-custom-theme/lmanknmemlpnjolgjoffdkmkkeibpfej">Term PTT Custom Theme</a> 套用，原始碼見 <a href="https://github.com/VdustR/term-ptt-custom-theme">GitHub</a>。</sub>
 </p>
 
 桌面版、CLI 與 Python library 工具，用來把字型調整成適合 term.ptt.cc 終端機格線的版本。
@@ -34,7 +34,7 @@ python -m pip install -e '.[desktop]'
 ptt-font-desktop
 ```
 
-prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
+prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生可預覽與匯出的完整處理字型，以及匯出並驗證處理後的字型。
 
 Noto fallback 會由桌面版下載到應用程式自己的 cache，不會安裝到系統字型。使用者可以在 fallback 區塊下載、重新下載、清空，或打開 cache 資料夾，並選擇 `Noto Sans TC` 或 `Noto Serif TC` 作為文字 fallback。
 
