@@ -19,13 +19,13 @@
 主要功能：
 
 - 開啟本機字型檔。
-- 用投入字型即時編輯預覽文字。
+- 用載入的字型即時編輯預覽文字。
 - 顯示字型 metadata、audit summary 與 fallback glyph coverage。
 - 管理 fallback font stack 與 Noto fallback cache。
 - 切換 `center` / `fit` 處理策略。
 - 建立並匯出適合 PTT 使用的本機輸出檔。
 
-桌面版 release artifacts 會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行，不要求使用者自行安裝 Python、fontTools、Brotli 或其他 runtime dependencies。
+桌面版 release artifacts 會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行，不需自行安裝 Python、fontTools、Brotli 等環境。
 
 下載桌面版請前往 [GitHub Releases](https://github.com/VdustR/ptt-font-tool/releases/latest)，選擇最新版中的 macOS、Windows 或 Linux artifact。
 
