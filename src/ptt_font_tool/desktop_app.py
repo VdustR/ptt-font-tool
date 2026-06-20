@@ -38,7 +38,7 @@ def format_audit_summary(summary: AuditSummary) -> str:
 
 
 def format_patch_preview_status(summary: AuditSummary) -> str:
-    return f"Patched preview: {summary.ok:,}/{summary.total:,} checks OK"
+    return f"Built font: {summary.ok:,}/{summary.total:,} checks OK"
 
 
 def format_export_status(output_path: Path, summary: AuditSummary) -> str:

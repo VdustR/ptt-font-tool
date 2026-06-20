@@ -590,7 +590,7 @@ class MainWindow(QMainWindow):
         self.export_status = self._detail_label()
         self.export_status.setObjectName("StatusLabel")
 
-        self.refresh_preview_button = QPushButton("Build preview")
+        self.refresh_preview_button = QPushButton("Build font")
         self.refresh_preview_button.setObjectName("SecondaryButton")
         self.refresh_preview_button.clicked.connect(self._refresh_patch_preview)
 
@@ -599,9 +599,9 @@ class MainWindow(QMainWindow):
         self.export_hint_label = self._detail_label()
         self.export_hint_label.setObjectName("ExportHint")
         self.export_hint_label.setText(
-            "Export opens a save dialog. If the preview is stale, export builds first."
+            "Export copies the last built font. If settings changed, export builds first."
         )
-        self.export_button = QPushButton("Export built font")
+        self.export_button = QPushButton("Export font")
         self.export_button.setEnabled(False)
         self.export_button.clicked.connect(self._export_font)
 
@@ -627,7 +627,7 @@ class MainWindow(QMainWindow):
         preview_header.addWidget(QLabel("Rendered preview"))
         preview_header.addStretch(1)
         self.original_radio = QRadioButton("Original")
-        self.patched_radio = QRadioButton("Patched")
+        self.patched_radio = QRadioButton("Built")
         self.original_radio.setChecked(True)
         self.original_radio.toggled.connect(self._preview_mode_changed)
         self.patched_radio.toggled.connect(self._preview_mode_changed)
@@ -637,7 +637,7 @@ class MainWindow(QMainWindow):
         self.preview_hint_label = self._detail_label()
         self.preview_hint_label.setObjectName("PreviewHint")
         self.preview_hint_label.setText(
-            "Edit sample text here. Build to see the patched font in this preview."
+            "Edit sample text here. Build to render it with the built font."
         )
         layout.addWidget(self.preview_hint_label)
         layout.addWidget(self.rendered_preview, 1)
@@ -667,9 +667,9 @@ class MainWindow(QMainWindow):
         self.fallback_details.setText("Fallback coverage appears in the font stack after a font is opened.")
         self.fallback_fonts.setText(self._fallback_fonts_text())
         self._set_noto_cache_details_text(self._noto_stack_coverage_text())
-        self.preview_status.setText("Add a font to build a patched preview.")
+        self.preview_status.setText("Add a font to build a PTT-ready font.")
         self.preview_hint_label.setText(
-            "Drop or add fonts first. Build creates the patched preview shown here."
+            "Drop or add fonts first. Build creates the font shown here and used for export."
         )
         self._set_export_status("")
         self.family_input.clear()
@@ -995,7 +995,7 @@ class MainWindow(QMainWindow):
         self.fallback_fonts.setText(self._fallback_fonts_text())
         self.preview_status.setText("Loading font...")
         self.preview_hint_label.setText(
-            "Loading coverage and metrics. Build after loading to inspect the patched font."
+            "Loading coverage and metrics. Build after loading to inspect the PTT-ready font."
         )
         self._set_export_status("")
         self.patched_radio.setEnabled(False)
@@ -1030,7 +1030,7 @@ class MainWindow(QMainWindow):
         self.original_radio.setChecked(True)
         self.preview_status.setText("Ready to build. Export will build first if needed.")
         self.preview_hint_label.setText(
-            "Original preview is shown. Build to switch to the patched preview."
+            "Original preview is shown. Build to switch to the built font."
         )
         self._updating_ui = False
         self._build_dirty = True
@@ -1114,7 +1114,7 @@ class MainWindow(QMainWindow):
             return
 
         if self._has_built_preview():
-            self.export_button.setText("Export built font")
+            self.export_button.setText("Export font")
             return
 
         self.export_button.setText("Build and export")
@@ -1268,7 +1268,10 @@ class MainWindow(QMainWindow):
         finally:
             self._syncing_preview_text = False
 
-        self._mark_build_dirty("Preview text changed")
+        self._mark_build_dirty(
+            "Preview text changed",
+            keep_built_font=True,
+        )
 
     def _patch_inputs_changed(self, *_args) -> None:
         self._mark_build_dirty("Build settings changed")
@@ -1290,21 +1293,29 @@ class MainWindow(QMainWindow):
             "This is the best default for most fonts."
         )
 
-    def _mark_build_dirty(self, reason: str) -> None:
+    def _mark_build_dirty(self, reason: str, *, keep_built_font: bool = False) -> None:
         if self._updating_ui or self._state is None:
             return
 
         self._preview_request_id += 1
-        self._patch_preview_path = None
-        self._built_result = None
+        if not keep_built_font:
+            self._patch_preview_path = None
+            self._built_result = None
         self._build_dirty = True
         self._export_after_preview = False
-        self.patched_radio.setEnabled(False)
-        self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
-        self.preview_hint_label.setText(
-            "Original preview is shown. Build again to inspect the patched font."
-        )
-        if self.patched_radio.isChecked():
+        self.patched_radio.setEnabled(self._patch_preview_path is not None)
+        if keep_built_font and self._patch_preview_path is not None:
+            self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
+            self.preview_hint_label.setText(
+                "Built font is still shown. Build again if the new text needs fallback glyphs."
+            )
+        else:
+            self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
+            self.preview_hint_label.setText(
+                "Original preview is shown. Build again to inspect the built font."
+            )
+
+        if self.patched_radio.isChecked() and self._patch_preview_path is None:
             self.original_radio.setChecked(True)
             self._show_original_preview()
         self._set_font_controls_enabled(True)
@@ -1352,13 +1363,13 @@ class MainWindow(QMainWindow):
         self._built_result = None
         self.patched_radio.setEnabled(False)
         if self._export_after_preview:
-            self.preview_status.setText("Building patched preview. Save dialog will open next.")
+            self.preview_status.setText("Building font. Save dialog will open next.")
         else:
-            self.preview_status.setText("Building patched preview...")
+            self.preview_status.setText("Building font...")
         self.preview_hint_label.setText(
-            "Building the patched font. The preview switches when the build finishes."
+            "Building the PTT-ready font. The preview switches when the build finishes."
         )
-        self._set_busy("preview", "Building preview...")
+        self._set_busy("preview", "Building font...")
         self._set_font_controls_enabled(True)
         self._preview_future = self._executor.submit(
             build_font_stack,
@@ -1366,7 +1377,7 @@ class MainWindow(QMainWindow):
             output_path=output_path,
             family_name=self.family_input.text(),
             strategy=self._selected_strategy(),
-            sample_text=self._preview_sample_text,
+            sample_text=None,
             required_fallback_chars=self._required_fallback_chars(),
             noto=self._noto_text_style,
         )
@@ -1411,7 +1422,7 @@ class MainWindow(QMainWindow):
             f"{format_patch_preview_status(result.patch.audit)}. Ready to export."
         )
         self.preview_hint_label.setText(
-            "Patched preview is shown. Edit sample text and rebuild if you change settings."
+            "Built font is shown. Edit sample text live; rebuild if the text needs fallback glyphs."
         )
         self._set_font_controls_enabled(self._state is not None)
 
@@ -1433,7 +1444,7 @@ class MainWindow(QMainWindow):
         self._build_dirty = True
         self._export_after_preview = False
         self.patched_radio.setEnabled(False)
-        self.preview_status.setText(f"Patched preview failed: {error}")
+        self.preview_status.setText(f"Build failed: {error}")
         self.preview_hint_label.setText(
             "Build failed. Fix the font stack or settings, then build again."
         )
@@ -1451,9 +1462,9 @@ class MainWindow(QMainWindow):
 
         if not self._has_built_preview():
             self._export_after_preview = True
-            self.preview_status.setText("Building patched preview before export...")
+            self.preview_status.setText("Building font before export...")
             self.preview_hint_label.setText(
-                "Export needs a fresh build. The save dialog opens after the patched font is ready."
+                "Export needs a fresh build. The save dialog opens after the font is ready."
             )
             self._refresh_patch_preview()
             self._set_font_controls_enabled(True)
@@ -1481,7 +1492,7 @@ class MainWindow(QMainWindow):
 
         selected_path, _selected_filter = QFileDialog.getSaveFileName(
             self,
-            "Export built font",
+            "Export font",
             str(self._state.output_path),
             "Font files (*.ttf *.otf);;All files (*)",
         )
@@ -1531,7 +1542,7 @@ class MainWindow(QMainWindow):
     def _patch_preview_output_path(self) -> Path:
         assert self._state is not None
         source = self._state.metadata.path
-        return Path(self._temp_dir.name) / f"{source.stem}-{self._selected_strategy()}-preview{source.suffix}"
+        return Path(self._temp_dir.name) / f"{source.stem}-{self._selected_strategy()}-built{source.suffix}"
 
     def _required_fallback_chars(self) -> str:
         return "".join(dict.fromkeys(f"{PTT_REQUIRED_SYMBOLS}{self._preview_sample_text}"))
