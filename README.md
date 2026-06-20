@@ -7,7 +7,7 @@
 <p align="center">
   <img src="assets/readme/term-ptt-custom-theme.png" width="860" alt="Term PTT Custom Theme color preview">
   <br>
-  <sub>截圖範例使用 <a href="https://www.sentyfont.com/watermelon.htm">新蒂西瓜体</a> 搭配 <a href="https://github.com/mbadolato/iTerm2-Color-Schemes/blob/61c5479/schemes/Night%20Owl.itermcolors">Night Owl.itermcolors</a>。顏色主題可搭配 <a href="https://chromewebstore.google.com/detail/term-ptt-custom-theme/lmanknmemlpnjolgjoffdkmkkeibpfej">Term PTT Custom Theme</a> 套用，原始碼見 <a href="https://github.com/VdustR/term-ptt-custom-theme">GitHub</a>。</sub>
+  <sub>截圖範例使用 <a href="https://www.sentyfont.com/watermelon.htm">新蒂西瓜体</a> 搭配 <a href="https://github.com/mbadolato/iTerm2-Color-Schemes/blob/61c5479/schemes/Night%20Owl.itermcolors">Night Owl</a>。顏色主題可搭配 <a href="https://chromewebstore.google.com/detail/term-ptt-custom-theme/lmanknmemlpnjolgjoffdkmkkeibpfej">Term PTT Custom Theme</a> 套用，原始碼見 <a href="https://github.com/VdustR/term-ptt-custom-theme">GitHub</a>。</sub>
 </p>
 
 桌面版、CLI 與 Python library 工具，用來把字型調整成適合 term.ptt.cc 終端機格線的版本。
