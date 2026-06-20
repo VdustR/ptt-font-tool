@@ -87,6 +87,15 @@ class FallbackTest(unittest.TestCase):
 
         self.assertEqual(missing, ["←", "→"])
 
+    def test_find_missing_glyphs_ignores_control_characters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            font_path = Path(directory) / "target.ttf"
+            _build_ttf(font_path, {"A": "A"}, {"A": 500})
+
+            missing = find_missing_glyphs(font_path, "A\n←")
+
+        self.assertEqual(missing, ["←"])
+
     def test_merge_missing_glyphs_uses_ordered_fallback_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

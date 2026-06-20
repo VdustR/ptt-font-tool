@@ -34,7 +34,9 @@ python -m pip install -e '.[desktop]'
 ptt-font-desktop
 ```
 
-prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
+prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生 patched preview，以及匯出並驗證處理後的字型。
+
+Noto fallback 會由桌面版下載到應用程式自己的 cache，不會安裝到系統字型。使用者可以在 fallback 區塊下載、重新下載、清空，或打開 cache 資料夾，並選擇 `Noto Sans TC` 或 `Noto Serif TC` 作為文字 fallback。
 
 桌面版可以檢查 GitHub Releases 是否有新版；目前只會提示並開啟 release 頁面，不會自動下載、替換或執行更新檔。
 
@@ -97,6 +99,7 @@ CLI 用於可重複執行的本機流程與自動化。
 ```bash
 ptt-font audit input.otf
 ptt-font patch input.otf --output output.otf --strategy center
+ptt-font build primary.ttf fallback-a.ttf fallback-b.ttf --output output.ttf --noto sans
 ptt-font verify output.otf
 ```
 
@@ -112,6 +115,38 @@ ptt-font verify output.otf
 ptt-font patch lithue-1.1.otf --sample-text "A漢ˇ"
 # 產生 lithue-1.1-ptt.otf
 ```
+
+`build` 是新的多字型流程。第一個 path 是主要字型，後面的 path 依序作為 fallback font。缺字會先從 fallback stack 補，最後才使用已下載的 Noto fallback。
+
+```bash
+ptt-font build SentyWatermelon.ttf MingLiU-PTT.ttf \
+  --output SentyWatermelon-ptt.ttf \
+  --strategy center \
+  --noto sans
+```
+
+`--noto` 支援 `sans`、`serif`、`off`。預設不會自動下載 Noto，避免 CLI 在 build 時產生未預期的 network side effect。需要 build 前自動補齊 Noto cache 時，可以加上：
+
+```bash
+ptt-font build input.ttf fallback.ttf --download-noto
+```
+
+Noto cache 可以獨立管理：
+
+```bash
+ptt-font noto status --noto sans
+ptt-font noto download --noto sans
+ptt-font noto clear --noto sans
+ptt-font noto path
+```
+
+設定來源優先序是 CLI args 優先，接著才讀 env var，最後使用作業系統預設值。
+
+可用 env var：
+
+- `PTT_FONT_TOOL_FONTS_DIR`：app-managed fonts root；Noto 會放在底下的 `noto/`。
+- `PTT_FONT_TOOL_NOTO_STYLE`：`sans`、`serif` 或 `off`。
+- `PTT_FONT_TOOL_FALLBACK_FONTS`：fallback font path list，使用作業系統 path separator 分隔，例如 macOS/Linux 用 `:`、Windows 用 `;`。
 
 處理策略：
 
@@ -129,6 +164,9 @@ Python library 提供桌面版與 CLI 共用的核心邏輯。
 - `ptt_font_tool.profile`：將 Unicode 字元映射到 Term PTT cell 寬度。
 - `ptt_font_tool.audit`：讀取字型，檢查 glyph advance width 是否符合 Term PTT profile。
 - `ptt_font_tool.patch`：修改 glyph advance width，並套用 `center` 或 `fit` outline 策略。
+- `ptt_font_tool.fallback`：依照 fallback chain 合併缺少的 glyph。
+- `ptt_font_tool.noto_cache`：管理 app cache 中的 Noto fallback 下載、狀態與清除。
+- `ptt_font_tool.font_stack`：提供 CLI 與桌面版共用的多字型 stack、Noto resolver 與 build entrypoint。
 
 ## Font Width Model 字寬模型
 

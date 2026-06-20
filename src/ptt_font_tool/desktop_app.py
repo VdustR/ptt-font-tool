@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -48,28 +49,68 @@ def format_export_status(output_path: Path, summary: AuditSummary) -> str:
     ])
 
 
-def format_fallback_status(status: FallbackStatus) -> str:
-    if not status.layers:
-        return "PTT fallback glyphs are covered."
+@dataclass(frozen=True)
+class UnavailableFallbackLayer:
+    label: str
+    reason: str
 
-    lines = [_format_fallback_layer(layer) for layer in status.layers]
+
+def format_fallback_summary(
+    status: FallbackStatus,
+    *,
+    unavailable_layers: Sequence[UnavailableFallbackLayer] = (),
+) -> str:
+    if unavailable_layers and status.unresolved:
+        count = len(status.unresolved)
+        noun = "glyph" if count == 1 else "glyphs"
+        verb = "needs" if count == 1 else "need"
+        return (
+            f"{count:,} PTT {noun} still {verb} Noto fallback. "
+            "Download Noto to continue the coverage check."
+        )
+
     if status.unresolved:
         count = len(status.unresolved)
         noun = "glyph is" if count == 1 else "glyphs are"
-        lines.append(
-            f"Warning: {count:,} PTT {noun} still missing after all fallback fonts."
-        )
+        return f"Warning: {count:,} PTT {noun} still missing after all fallback fonts."
+
+    return "All required PTT glyphs are covered."
+
+
+def format_fallback_status(
+    status: FallbackStatus,
+    *,
+    unavailable_layers: Sequence[UnavailableFallbackLayer] = (),
+) -> str:
+    if not status.layers:
+        return format_fallback_summary(status, unavailable_layers=unavailable_layers)
+
+    lines = [
+        _format_fallback_layer(index, layer)
+        for index, layer in enumerate(status.layers, start=1)
+    ]
+    next_index = len(lines) + 1
+    for offset, layer in enumerate(unavailable_layers):
+        lines.append(_format_unavailable_fallback_layer(next_index + offset, layer))
 
     return "\n".join(lines)
 
 
-def _format_fallback_layer(layer: FallbackLayerStatus) -> str:
+def _format_fallback_layer(index: int, layer: FallbackLayerStatus) -> str:
     missing_count = len(layer.missing_after)
-    missing = "✓ 0 missing" if missing_count == 0 else f"{missing_count:,} missing"
+    missing = "0 missing" if missing_count == 0 else f"{missing_count:,} missing"
+    prefix = f"{index}. {layer.label}"
     if layer.added:
-        return f"{layer.label}: {missing}, adds {len(layer.added):,}"
+        return f"{prefix}: adds {len(layer.added):,}, {missing} after this layer"
 
-    return f"{layer.label}: {missing}"
+    if layer.kind == "primary":
+        return f"{prefix}: {missing} after input font"
+
+    return f"{prefix}: adds 0, {missing} after this layer"
+
+
+def _format_unavailable_fallback_layer(index: int, layer: UnavailableFallbackLayer) -> str:
+    return f"{index}. {layer.label}: needs download ({layer.reason})"
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

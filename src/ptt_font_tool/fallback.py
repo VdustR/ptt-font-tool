@@ -4,6 +4,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, Union
+import unicodedata
 
 from .profile import TermPttProfile
 
@@ -222,4 +223,8 @@ def _unique_characters(required_chars: Union[str, Iterable[str]]) -> list[str]:
         if len(character) != 1:
             raise ValueError("required_chars must contain single Unicode code points")
 
-    return unique
+    return [
+        character
+        for character in unique
+        if not unicodedata.category(character).startswith("C")
+    ]

@@ -8,8 +8,6 @@ import ssl
 from typing import Any, Callable, Optional
 from urllib.request import Request, urlopen
 
-import certifi
-
 
 LATEST_RELEASE_API_URL = "https://api.github.com/repos/VdustR/ptt-font-tool/releases/latest"
 PACKAGE_NAME = "ptt-font-tool"
@@ -42,6 +40,11 @@ def current_package_version() -> str:
 
 
 def _certifi_ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+
     return ssl.create_default_context(cafile=certifi.where())
 
 

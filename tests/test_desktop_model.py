@@ -170,6 +170,7 @@ class DesktopModelTest(unittest.TestCase):
                 output_path,
                 family_name="Desktop Fixture PTT",
                 strategy="fit",
+                required_fallback_chars="",
             )
 
             audited = audit_font(output_path)
@@ -284,6 +285,24 @@ class DesktopModelTest(unittest.TestCase):
         self.assertTrue(audited.ok)
         self.assertEqual(result.fallback_added, ["←", "→"])
         self.assertEqual(result.fallback_unresolved, [])
+
+    def test_export_patched_font_audits_unresolved_required_glyphs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            font_path = root / "desktop-fixture.ttf"
+            output_path = root / "desktop-fixture-ptt.ttf"
+            _build_desktop_fixture(font_path)
+
+            result = export_patched_font(
+                font_path,
+                output_path,
+                family_name="Desktop Fixture PTT",
+                strategy="center",
+                required_fallback_chars="←",
+            )
+
+        self.assertEqual(result.fallback_unresolved, [])
+        self.assertEqual(result.audit.missing, 1)
 
     def test_export_patched_font_skips_fallback_merge_when_required_glyphs_exist(self):
         with tempfile.TemporaryDirectory() as directory:

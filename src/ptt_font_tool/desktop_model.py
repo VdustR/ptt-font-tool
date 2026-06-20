@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tempfile
 from typing import Optional, Sequence, Union
+import unicodedata
 
 from .audit import FontAuditResult, audit_font
 from .fallback import PTT_REQUIRED_SYMBOLS, find_missing_glyphs, merge_missing_glyphs
@@ -146,6 +147,7 @@ def export_patched_font(
     *,
     family_name: str,
     strategy: str,
+    sample_text: Optional[str] = None,
     fallback_paths: Sequence[Union[str, Path]] = (),
     required_fallback_chars: Union[str, Sequence[str]] = PTT_REQUIRED_SYMBOLS,
 ) -> PatchedFontState:
@@ -154,7 +156,7 @@ def export_patched_font(
         output_path,
         family_name=family_name,
         strategy=strategy,
-        sample_text=None,
+        sample_text=sample_text,
         fallback_paths=fallback_paths,
         required_fallback_chars=required_fallback_chars,
     )
@@ -196,7 +198,10 @@ def _patch_and_audit(
                 family_name=normalized_family_name,
                 strategy=strategy,
             )
-            audit = summarize_audit(audit_font(target_path, sample_text=sample_text))
+            audit = summarize_audit(audit_font(
+                target_path,
+                sample_text=_audit_sample_text(target_path, sample_text, required_fallback_chars),
+            ))
             return PatchedFontState(
                 output_path=target_path,
                 audit=audit,
@@ -211,7 +216,10 @@ def _patch_and_audit(
         family_name=normalized_family_name,
         strategy=strategy,
     )
-    audit = summarize_audit(audit_font(target_path, sample_text=sample_text))
+    audit = summarize_audit(audit_font(
+        target_path,
+        sample_text=_audit_sample_text(target_path, sample_text, required_fallback_chars),
+    ))
     return PatchedFontState(
         output_path=target_path,
         audit=audit,
@@ -313,6 +321,42 @@ def _flatten_added(layers: Sequence[FallbackLayerStatus]) -> list[str]:
         character
         for layer in layers
         for character in layer.added
+    ]
+
+
+def _audit_sample_text(
+    font_path: Path,
+    sample_text: Optional[str],
+    required_fallback_chars: Union[str, Sequence[str]],
+) -> Optional[str]:
+    if sample_text is not None:
+        return sample_text
+
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError as error:
+        raise RuntimeError("fonttools is required to audit patched fonts") from error
+
+    font = TTFont(font_path)
+    try:
+        cmap_chars = [chr(codepoint) for codepoint in sorted((font.getBestCmap() or {}))]
+    finally:
+        font.close()
+
+    return "".join(_unique_non_control_chars([*cmap_chars, *required_fallback_chars]))
+
+
+def _unique_non_control_chars(characters: Sequence[str]) -> list[str]:
+    unique = list(dict.fromkeys(characters))
+
+    for character in unique:
+        if len(character) != 1:
+            raise ValueError("characters must contain single Unicode code points")
+
+    return [
+        character
+        for character in unique
+        if not unicodedata.category(character).startswith("C")
     ]
 
 
