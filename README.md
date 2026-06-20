@@ -14,27 +14,29 @@
 
 ## Desktop
 
-桌面版會是主要的使用者介面。
+桌面版是主要的使用者介面。
 
-目標：
+主要功能：
 
 - 開啟本機字型檔。
-- 預覽字型是否符合 term.ptt.cc 的終端機格線寬度。
-- 將字型處理成適合 PTT 使用的本機輸出檔。
-- 匯出處理後的字型，不要求使用者自行安裝 Python、fontTools、Brotli 或其他 runtime dependencies。
+- 用投入字型即時編輯預覽文字。
+- 顯示字型 metadata、audit summary 與 fallback glyph coverage。
+- 管理 fallback font stack 與 Noto fallback cache。
+- 切換 `center` / `fit` 處理策略。
+- 建立並匯出適合 PTT 使用的本機輸出檔。
 
-桌面版會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行。
+桌面版 release artifacts 會把需要的 runtime dependencies 一起打包，讓使用者下載後可以直接執行，不要求使用者自行安裝 Python、fontTools、Brotli 或其他 runtime dependencies。
 
 下載桌面版請前往 [GitHub Releases](https://github.com/VdustR/ptt-font-tool/releases/latest)，選擇最新版中的 macOS、Windows 或 Linux artifact。
 
-目前本地 prototype 可以用 desktop extra 啟動：
+本地開發版可以用 desktop extra 啟動：
 
 ```bash
 python -m pip install -e '.[desktop]'
 ptt-font-desktop
 ```
 
-prototype 目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生可預覽與匯出的完整處理字型，以及匯出並驗證處理後的字型。
+桌面版目前支援開啟本機字型、用投入字型預覽文字、顯示 metadata、顯示 audit summary、管理 fallback glyph coverage、切換 `center` / `fit`、產生可預覽與匯出的完整處理字型，以及匯出並驗證處理後的字型。
 
 Noto fallback 會由桌面版下載到應用程式自己的 cache，不會安裝到系統字型。使用者可以在 fallback 區塊下載、重新下載、清空，或打開 cache 資料夾，並選擇 `Noto Sans TC` 或 `Noto Serif TC` 作為文字 fallback。
 
@@ -201,14 +203,14 @@ python -m pip install -e .
 python -m unittest discover -s tests
 ```
 
-## Release Plan 發布規劃
+## Release 發布
 
-這個 repository 預計使用 Release Please 管理版本與自動化 release。
+這個 repository 使用 Release Please 管理版本與自動化 release。
 
-未來 release artifacts 預計包含：
+Release 建立後，GitHub Actions 會自動建置並上傳：
 
-- 已包含 runtime dependencies 的桌面版 app bundles。
-- 可下載 artifacts 的 checksums。
+- 已包含 runtime dependencies 的桌面版 artifacts。
+- 每個 artifact 對應的 `.sha256` checksum 檔。
 
 ## License And Font Rights 授權與字型權利
 
