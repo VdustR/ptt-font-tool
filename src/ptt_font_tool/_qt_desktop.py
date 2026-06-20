@@ -1304,19 +1304,22 @@ class MainWindow(QMainWindow):
         self._build_dirty = True
         self._export_after_preview = False
         self.patched_radio.setEnabled(self._patch_preview_path is not None)
+        self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
         if keep_built_font and self._patch_preview_path is not None:
-            self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
             self.preview_hint_label.setText(
                 "Built font is still shown. Build again if the new text needs fallback glyphs."
             )
         else:
-            self.preview_status.setText(f"{reason}. Export will rebuild before saving.")
             self.preview_hint_label.setText(
                 "Original preview is shown. Build again to inspect the built font."
             )
 
         if self.patched_radio.isChecked() and self._patch_preview_path is None:
-            self.original_radio.setChecked(True)
+            self._updating_ui = True
+            try:
+                self.original_radio.setChecked(True)
+            finally:
+                self._updating_ui = False
             self._show_original_preview()
         self._set_font_controls_enabled(True)
 

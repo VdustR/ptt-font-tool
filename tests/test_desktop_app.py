@@ -809,6 +809,58 @@ class DesktopAppTest(unittest.TestCase):
             window.close()
             app.quit()
 
+    def test_qt_dirty_settings_refresh_original_preview_once(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            from ptt_font_tool._qt_desktop import MainWindow
+        except ImportError as error:
+            self.skipTest(f"PySide6 is unavailable: {error}")
+
+        app = QApplication.instance() or QApplication([])
+        window = MainWindow()
+        summary = AuditSummary(total=1, ok=1, missing=0, mismatch=0)
+        fallback = FallbackStatus(
+            missing=[],
+            custom_resolved=[],
+            noto_resolved=[],
+            unresolved=[],
+            layers=[],
+        )
+        window._state = DesktopFontState(
+            metadata=FontMetadata(
+                path=Path("/tmp/source.ttf"),
+                family_name="Source",
+                style_name="Regular",
+                format="TrueType",
+                units_per_em=1000,
+                glyph_count=1,
+            ),
+            audit=summary,
+            fallback=fallback,
+            output_path=Path("/tmp/source-ptt.ttf"),
+            family_name="Source PTT",
+        )
+        window._font_stack_paths = [Path("/tmp/source.ttf")]
+        window._patch_preview_path = Path("/tmp/source-built.ttf")
+        window._built_result = SimpleNamespace(
+            audit=summary,
+            fallback_added=[],
+            fallback_unresolved=[],
+        )
+
+        try:
+            window.patched_radio.setEnabled(True)
+            window.patched_radio.setChecked(True)
+            with patch.object(window, "_show_original_preview") as show_original_preview:
+                window._mark_build_dirty("Build settings changed")
+
+            show_original_preview.assert_called_once()
+        finally:
+            window.close()
+            app.quit()
+
     def test_qt_preview_build_completion_switches_to_patched_preview(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         try:
